@@ -3,7 +3,7 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
-## v4.0.? — 2026-11-18 — Red update: breaks, message bank, new presets
+## v4.0.8 — 2026-11-18 — Red update: breaks, message bank, new presets
 - **Chat removed** (popup, input, history, motivation button, API code, key tab). Her typewriter line stays.
 - **Click her in focus** for a new line from the message bank: 13 groups of 10 (Cold, Proud, Stern,
   Teasing, Bored, Tender-hidden, Encouraging, Melancholy, Theatrical, Mocking, Reflective, Hurt,
