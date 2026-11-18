@@ -3,6 +3,25 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## v4.0.? — 2026-11-18 — Type your minutes, settings hidden in a session, new sounds
+- **Type the minutes:** click the number in the home ring, type a new value, press Enter (Esc cancels,
+  clicking elsewhere keeps it). Digits only. The limit is 1000 minutes, also for the ± buttons and the
+  preset Time field (was 600).
+- **Settings hidden during a session:** the header shows only the wordmark until the session ends (it
+  used to say "● locked").
+- **New sounds:** Start plays a low minor chord climbing (D F A D). The end plays a bright major chord
+  stepping down with the last note held (D A F# D). Both play in the background so the window never
+  freezes while they sound.
+- Also a small release to test the update restart fix from v4.0.13: updating from v4.0.13 to this one
+  should restart Ave by itself.
+- Internals: `melody()`, `SOUND_START`, `SOUND_DONE`, `MAX_MIN`, `Ring.editable/edit/stop_edit`,
+  `App._typed_minutes`. `ACCENT_TEXT` removed (unused). Areas touched: Ring, home, header, sounds.
+- Tested: pyflakes; Xvfb test (15 checks): letters and 5+ digits refused, Esc cancels, typed 45 and 1000
+  saved, 9999 capped to 1000, 0 refused, +5 at 1000 stays, an open box is kept when ± or a chip is used,
+  settings shown on home and hidden in a session. Screenshots of home, typing, run reviewed.
+- Not tested: the sounds (winsound only exists on Windows), typing in the ring on a real PC, the update
+  restart from v4.0.13.
+
 ## v4.0.13 — 2026-11-18 — Fix: update restart error
 - **Bugfix:** after "Check for updates", the new Ave.exe stopped with "Security validation failure:
   invalid originating onefile parent process (PID not found)!". The update helper inherited the old

@@ -73,7 +73,7 @@ Hard rules (the user set these; do not break them):
 5. **One file, Python standard library only** (`ave/ave.py`). No pip packages at runtime.
 6. **Look (matte, since the Matte update):** `#222222` background, dark-red UI (`#790100`, hover
    `#9a1d1b`). Greys are tinted with the red but muted so text stays readable (`DIM #b37c78` (4.6:1),
-   `FAINT #946360` (3.2:1, small print only), red text `ACCENT_TEXT #d4706a`, hairlines `LINE #3b2726`), main text matte off-white `#e6e1e0`, ring track grey
+   `FAINT #946360` (3.2:1, small print only), hairlines `LINE #3b2726`), main text matte off-white `#e6e1e0`, ring track grey
    `#3a3a3a`. **Oblivionis's own line stays blue `#a9b9d0`.** No glows, no bright outlines: flat
    rounded pills, spacing on a 4 px scale (4/8/12/16/24). Thin ring (1 px track, 3 px arc, small head dot). Feel: minimal, smooth, retro-coding.
    Fonts: Cascadia Mono for the `ave▮` wordmark, tabs, small labels, lists and her line;
@@ -104,7 +104,8 @@ Top to bottom:
   focus: mmc, schtasks, regedit), `ALIASES` (extra domains per site), palette
   (`BG #222222`, `SURFACE`/`SURFACE2`/`SURFACE3`, `ACCENT` red, `DIM`/`FAINT`/`LINE` matte dark red,
   `ACCENT_DIM`, `ACCENT_FG`, `RING_TRACK`, `HER #a9b9d0`), `TYPE_SPEED`.
-- **Helpers:** `ticks()` = Windows uptime ms (`GetTickCount64`, clock-proof),
+- **Helpers:** `beep()`, `melody(notes)` (background thread; `SOUND_START` minor rising, `SOUND_DONE`
+  major falling), `MAX_MIN = 1000`, `ticks()` = Windows uptime ms (`GetTickCount64`, clock-proof),
   `online_time()` (HTTP Date header from google/microsoft/cloudflare), `run_elevated()` (UAC).
 - **Spare copy + delete lock:** `ensure_backup()`, `hold_files()` (open both exes without
   delete-sharing during a session), `release_files()`.
@@ -127,11 +128,11 @@ Top to bottom:
   not resumed.
 - **UI (tkinter):** `Pill` (flat rounded button; kinds accent / ghost / chip / mono; `command=None`
   = disabled look), `Ring` (thin progress ring + head dot; digits shrink for H:MM:SS; `sweep()` winds it
-  in on each screen change), `Wordmark` (`ave` + slow-blinking red block cursor), `Oracle` (Oblivionis
+  in on each screen change; `editable()` = click the number to type it, `stop_edit()`), `Wordmark` (`ave` + slow-blinking red block cursor), `Oracle` (Oblivionis
   typewriter line, matrix noise glyph, blinking █, auto-speaks every ~13 s, click = `on_click`).
-  `App`: header (Wordmark, settings / ● locked), screens `home`, `run`, `settings`
+  `App`: header (Wordmark, settings; nothing on the right during a session), screens `home`, `run`, `settings`
   (mono lowercase tabs with a red underline: programs / websites / presets / about), Oracle at bottom.
-  - Home: ring, break meta line, −5 −1 +1 +5 buttons, preset chips (first four), Start.
+  - Home: ring (click the number to type 1–1000 min, `_typed_minutes`), break meta line, −5 −1 +1 +5 buttons, preset chips (first four), Start.
     Start says "put the mask on?", then "give me your life" for 6 s; `_pulse` while armed.
   - Run: ring with the countdown, "N breaks left" / "on break", "free at HH:MM", one break button
     (`_break_click`): takes a break; during a break "end break early" → "back to work?" (4 s) →
