@@ -43,6 +43,11 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 3. New start sound (minor, rising) and a different end sound (major, falling).
 4. Purpose: also tests the update restart fix (v4.0.13 → this release should restart by itself).
 
+## 5c. Watchdog pair (BUILT, release pending)
+- While a session runs, a hidden second Ave (`--watch`) waits on the main one and relaunches it ~1-3 s after
+  it is killed, under the 1-minute AveGuard task. One watcher (mutex). Exits when the session ends; killed by
+  finish/cleanup. Open gap: `taskkill /im Ave.exe` kills both at once -> 1-minute fallback.
+
 ## 5b. v4.0.8 plan (SHIPPED as v4.0.8)
 1. **Remove the chat completely:** the popup, input, history, the motivation button, the API code, and the Settings > Oblivionis key tab. Keep the typewriter line.
 2. **Random message in focus:** during a focus session, clicking anywhere on her text box makes her refresh with a new random message from the bank. Outside a session she speaks as she does now.

@@ -15,6 +15,7 @@ Each item needs a real Windows test before it's called done.
 - DPI scaling and the dark title bar
 - The self-update helper (swap, restart with the same rights)
 - The update restart fix (PYINSTALLER_RESET_ENVIRONMENT): first real update from v4.0.13 to a newer one
+- The watchdog pair: kill-and-relaunch timing, one-watcher mutex, admin inheritance, both-killed fallback
 
 Also untested, from the next update onward: manual breaks, the manual program box,
 the ±1 timer buttons, the new fonts and effects, the message bank shuffle, the typewriter speed.

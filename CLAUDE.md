@@ -100,7 +100,7 @@ ave/build_exe.bat             local Windows build (PyInstaller --onefile --nocon
 Top to bottom:
 - **Constants:** paths (`DATA = %LOCALAPPDATA%\Ave`, `config.json`, `state.json`,
   hidden spare exe `DATA\bin\Ave.exe`), hosts markers `# Ave begin/end`, IFEO key,
-  task name `AveGuard`, `PROTECTED` (never killed), `SEAL` (escape tools closed during
+  task name `AveGuard`, watcher mutex `AveWatcher` + `watch.pid`, `PROTECTED` (never killed), `SEAL` (escape tools closed during
   focus: mmc, schtasks, regedit), `ALIASES` (extra domains per site), palette
   (`BG #222222`, `SURFACE`/`SURFACE2`/`SURFACE3`, `ACCENT` red, `DIM`/`FAINT`/`LINE` matte dark red,
   `ACCENT_DIM`, `ACCENT_FG`, `RING_TRACK`, `HER #a9b9d0`), `TYPE_SPEED`.
@@ -119,6 +119,10 @@ Top to bottom:
   www./m./aliases, flushdns), `ifeo_block/unblock` (Debugger=`systray.exe`, only removes
   its own value), `guard_install/exists/remove` (schtasks every 1 min, `/RL HIGHEST` if
   admin, runs `--guard`), `autostart(on)` (HKCU Run, `--guard`), `lift_all()`.
+- **Watchdog pair:** `wait_proc()` (WaitForSingleObject on a pid), `spawn_watcher()`/`watcher_running()`
+  (one hidden `--watch` copy, mutex-guarded), `run_watcher()` (relaunches the main Ave ~1-3 s after it is
+  killed while `state.active`), `watch_decide()` (pure policy), `kill_watcher()`. Layered under the
+  1-minute `AveGuard` task; exits when the session ends.
 - **Session** (no stop method by design): one focus countdown in ms (`focus_left`), paused during
   a break (`break_left`, `on_break`). `take_break()` (uses one of `breaks_left`, lifts blocks),
   `end_break()` (ends a break early, blocks back on, the used break is not refunded),
@@ -154,7 +158,7 @@ Top to bottom:
   manual check). Settings tab **About**. Script mode (`VERSION == "dev"`) never updates.
 - **main():** `--cleanup` → lift all & exit. Single instance via mutex
   `Local\AveSingleton`. `--guard` launches: take over if the running Ave's heartbeat is
-  >150 s old (suspended/hung); if no active session → tidy up and exit; non-admin login
+  >150 s old (suspended/hung). `--watch <pid>` runs the watchdog. If no active session → tidy up and exit; non-admin login
   copy of an admin session exits so the elevated guard copy takes over.
 
 ## 5. Build, test, release
