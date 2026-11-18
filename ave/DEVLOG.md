@@ -3,6 +3,39 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## v4.0.? — 2026-11-18 — Red update: breaks, message bank, new presets
+- **Chat removed** (popup, input, history, motivation button, API code, key tab). Her typewriter line stays.
+- **Click her in focus** for a new line from the message bank: 13 groups of 10 (Cold, Proud, Stern,
+  Teasing, Bored, Tender-hidden, Encouraging, Melancholy, Theatrical, Mocking, Reflective, Hurt,
+  Mask-on) plus CRYCHIC (her old band). Each category plays through in a shuffled order, then
+  reshuffles. The special lines (IDLE, FOCUS, CAUGHT, SEALED, RETURNED, BREAK, DONE, REFUSE) each got
+  15 more and use the same shuffle.
+- **Presets:** Name / Time / Break Count (0 = none) / Break Time, stacked vertically with those exact
+  labels. "Rounds" removed. Old presets convert on first launch (Break Count = old rounds − 1). Presets
+  named Deep / Pomodoro / Sprint are replaced by the new defaults: KiLLKiSS 120 min × 2 breaks,
+  Imprisoned XII 60 min × 1 break, uika 360 min × 4 breaks (Break Time 10 min each).
+- **Breaks by hand:** a Break button during focus. The focus countdown pauses, blocks lift for Break
+  Time, and Break Count goes down by one. Breaks are restored to the preset's count at each start.
+- Home: "MIN" under the number (was "MIN FOCUS"), ±1 buttons next to ±5. Start says "put the mask on?",
+  then "give me your life" for 6 s (was 4 s). The Start button pulses while armed.
+- Run screen: "FOCUS" label removed; shows breaks left or ON BREAK.
+- **Settings > Programs:** manual box. Type `name` or `name.exe` and every process with that name is
+  closed during focus. Paths and protected names are refused.
+- **Palette:** background `#222222`, UI red `#790100`, greys dark red, ring track `#3a3a3a`. Oblivionis's
+  own line stays blue `#a9b9d0`. The ring has a red glow and winds in on each screen change. No stored copy
+  of the old colours.
+- **Fonts:** Georgia (title and About heading), Bahnschrift (UI), Bahnschrift Light (ring numbers),
+  Cascadia Mono (her line). Fallbacks: Segoe UI, Consolas.
+- Typewriter 10% faster (`TYPE_SPEED = 0.9`).
+- Task Manager / cmd / PowerShell rule removed from the docs (the PROTECTED list in code is unchanged).
+- Old state files from before this version are not resumed; their blocks are lifted.
+- Tested: pyflakes; a UI test under Xvfb with a fake clock (31 checks): migration, defaults, arm and
+  start, focus countdown, break pauses the countdown, break count, break end, end of session, deck
+  cycle with no back-to-back repeats, click-for-bank, manual program box, presets labels. Screenshots of
+  home, run (focus and break), programs and presets reviewed.
+- Not tested: anything on Windows (blocking, relaunch after a reboot, the real fonts, the real palette
+  on a real screen, the Georgia/Bahnschrift rendering).
+
 ## docs — 2026-11-18 — Master prompt: automatic breaks dropped
 - `MASTER_PROMPT.md`: automatic breaks and the "Automatic breaks" toggle removed. App is for one
   user. Existing presets convert on first launch (Break Count = old rounds minus 1). No open questions.

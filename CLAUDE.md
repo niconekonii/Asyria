@@ -69,9 +69,10 @@ Hard rules (the user set these; do not break them):
 4. **Fail-safe above all:** if any blocker fails, fall back to plain process killing;
    **nothing may stay blocked after a session ends.** `Ave.exe --cleanup` lifts everything.
 5. **One file, Python standard library only** (`ave/ave.py`). No pip packages at runtime.
-6. **Look:** pure `#000000` background, white / dim-grey text, **one accent** —
-   Oblivionis stage-blue `#3d63e0`. Modern: rounded pills, thin progress ring, Segoe UI,
-   Cascadia Mono / Consolas for her terminal line.
+6. **Look (v4.0.8):** `#222222` background, dark-red UI (`#790100`, hover `#9a1d1b`),
+   greys = dark red for text and lines, ring track grey `#3a3a3a`. **Oblivionis's own line stays
+   blue `#a9b9d0`.** Rounded pills, thin progress ring with a red glow. Georgia for the title,
+   Bahnschrift for UI, Bahnschrift Light for ring numbers, Cascadia Mono for her line.
 7. Lightweight: no subprocess per tick, 2 s poll, small memory.
 
 ## 3. Repo layout
@@ -96,8 +97,6 @@ Top to bottom:
   hidden spare exe `DATA\bin\Ave.exe`), hosts markers `# Ave begin/end`, IFEO key,
   task name `AveGuard`, `PROTECTED` (never killed), `SEAL` (escape tools closed during
   focus: mmc, schtasks, regedit), `ALIASES` (extra domains per site), palette.
-- **Oblivionis lines:** `IDLE, FOCUS, CAUGHT, SEALED, RETURNED, BREAK, DONE, REFUSE`.
-  `{n}` = program name.
 - **Helpers:** `ticks()` = Windows uptime ms (`GetTickCount64`, clock-proof),
   `online_time()` (HTTP Date header from google/microsoft/cloudflare), `run_elevated()` (UAC).
 - **Spare copy + delete lock:** `ensure_backup()`, `hold_files()` (open both exes without
@@ -112,24 +111,21 @@ Top to bottom:
   www./m./aliases, flushdns), `ifeo_block/unblock` (Debugger=`systray.exe`, only removes
   its own value), `guard_install/exists/remove` (schtasks every 1 min, `/RL HIGHEST` if
   admin, runs `--guard`), `autostart(on)` (HKCU Run, `--guard`), `lift_all()`.
-- **Session** (no stop method by design): phases `[["focus"|"break", secs]]`, `end_tick`
-  in uptime ms. `start, tick (advances phases), heal (every 30 s: heartbeat save, re-apply
-  hosts/IFEO, re-create guard ~90 s, Run key), enforce (every 2 s, focus only: kill blocked
-  names, blocked-folder paths, SEAL tools; skips own pid/children/PROTECTED), finish
-  (lift all, remove guard/Run key, UAC `--cleanup` if not clean → `pending_cleanup`)`.
-  `restore()`: same boot → exact uptime diff; after reboot → online time diff, else
-  offline counts only this boot's uptime (strict, never lets time be skipped).
+- **Session** (no stop method by design): one focus countdown in ms (`focus_left`), paused during
+  a break (`break_left`, `on_break`). `take_break()` (uses one of `breaks_left`, lifts blocks),
+  `advance()`/`_spend()` (spends elapsed time, emits `break_end`/`done`), `tick`, `heal` (every 30 s, not
+  during a break), `enforce` (every 2 s, focus only), `finish`. `restore()`: same boot → exact uptime
+  diff; after reboot → online time diff, else offline counts only this boot. Old phase-format state is
+  not resumed.
 - **UI (tkinter):** `Pill` (rounded button), `Ring` (progress ring), `Oracle`
   (Oblivionis typewriter line, matrix noise glyph, blinking █, auto-speaks every ~13 s).
   `App`: header (A V E ●, settings / ● locked), screens `home`, `run`, `settings`
   (tabs Programs / Websites / Presets / Oblivionis / About), Oracle pinned at bottom. Start needs two clicks.
   Loops: `_loop` 1 s UI, `_poll` 2 s enforce, `_heal` 30 s.
-- **Oblivionis chat:** `CHAT_SYSTEM` (character sheet + off-limits rules), `CRYCHIC` (whole-word
-  trigger for the Sakiko slip, `CRYCHIC_NOTE`), `chat_call()` (Claude Messages API via urllib,
-  never raises), `dpapi()` (Windows DPAPI encrypt/decrypt for the key). `Chat` class: hover popup
-  placed over the content above her line, `enter/leave` + `_slide` ease animation, `send`,
-  `motivation`, `_ask` (background thread + `_poll` queue), `_reply`. History is memory only.
-  Settings tab "Oblivionis" holds the key (`_store_key`, `api_key`).
+- **Oblivionis lines:** `IDLE, FOCUS, CAUGHT, SEALED, RETURNED, BREAK, DONE, REFUSE` (original
+  + 15 each), `BANK` (13 groups of 10 + CRYCHIC). `Deck` = shuffle cycle (plays every line once, then
+  reshuffles, never repeats back to back). `deck_for(lines)`, `bank_line()`. Click her text in a
+  session for a bank line. Typewriter speed = `TYPE_SPEED`. The chat and API were removed in v4.0.8.
 - **Updates:** `VERSION` (stamped by CI), `REPO`, `latest_release()` (GitHub API),
   `Updater` (background check/download to `Ave.new.exe`; `apply()` writes `update.bat` that
   moves it over `SELF` after exit and starts it with `--updated`, inheriting admin rights).
@@ -181,13 +177,9 @@ Also update §4/§7 of this file whenever the architecture or known gaps change.
 change): still add a log entry, titled `## docs — YYYY-MM-DD — title`, and put
 `[skip ci]` in the commit message so no pointless new release is built.
 
-## 7. Known gaps / never tested on real Windows
+## 7. Known gaps (see NOTES.md)
 
-Nothing below has been run on a real PC yet (only CI build + `--cleanup` smoke test):
-scheduled-task guard & relaunch, IFEO launch block, hosts blocking, reboot survival,
-SEAL closing Task Scheduler, folder blocking, heartbeat takeover, delete lock & spare copy,
-dark title bar / DPI on real screens, the Oblivionis chat (real API call, DPAPI key storage,
-hover popup on a real mouse), the self-update swap/restart.
+Known gaps (code that has never run on a real Windows PC) are listed in `NOTES.md`.
 Deliberately open: Task Manager, cmd/PowerShell, other devices/accounts, Safe Mode,
 browser games on unlisted sites. Anti-cheat games may dislike IFEO.
 Defender may flag the unsigned PyInstaller exe: user excludes their `ave` folder and

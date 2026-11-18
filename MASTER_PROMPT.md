@@ -26,9 +26,9 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 - v4.0.2 to v4.0.5: Ave, presets, blocking, typewriter, guard and escape routes, delete protection.
 - v4.0.6: Oblivionis chat (hover popup, API key in settings). **Removed in the next update.**
 - v4.0.7: self-update from GitHub Releases (About tab, same-rights restart). Builds from v4.0.7 on can self-update.
-- Breaks today are **automatic** (between rounds, fixed length, set in the preset). Manual breaks are **not built yet**.
+- Breaks are manual (Break button, up to Break Count, pauses the countdown) from the next update on.
 
-## 5. Next update (decided; a new update, after v4.0.7)
+## 5. Next update (BUILT locally, tests pass; release pending; after v4.0.7)
 1. **Remove the chat completely:** the popup, input, history, the motivation button, the API code, and the Settings > Oblivionis key tab. Keep the typewriter line.
 2. **Random message in focus:** during a focus session, clicking anywhere on her text box makes her refresh with a new random message from the bank. Outside a session she speaks as she does now.
 3. **Special interactions:** keep all existing ones (IDLE, FOCUS, CAUGHT, SEALED, RETURNED, BREAK, DONE, REFUSE). Add 15 new lines to each. Lines using `{n}` keep it.

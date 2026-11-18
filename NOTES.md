@@ -3,7 +3,7 @@
 Code that exists but has never been run on a real Windows PC. We can't yet say it works.
 Each item needs a real Windows test before it's called done.
 
-- Auto-relaunch after a restart (AveGuard scheduled task, Run-key backup, heal loop)
+- Auto-relaunch after a restart (AveGuard scheduled task, Run-key backup, heal loop). Read through in v4.0.8: a break in progress survives a reboot in the code, but it has never run on Windows.
 - Guard task and relaunch
 - IFEO launch block (games refused at launch, needs admin)
 - Hosts-file website blocking
@@ -14,7 +14,6 @@ Each item needs a real Windows test before it's called done.
 - Delete lock and the hidden spare copy
 - DPI scaling and the dark title bar
 - The self-update helper (swap, restart with the same rights)
-- The Oblivionis chat (real API call, DPAPI key storage, hover popup with a real mouse). Removed in the next update.
 
 Also untested, from the next update onward: manual breaks, the manual program box,
 the ±1 timer buttons, the new fonts and effects, the message bank shuffle, the typewriter speed.
