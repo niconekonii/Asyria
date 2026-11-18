@@ -3,6 +3,11 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## docs — 2026-11-18 — Stay in character for notes too
+- `CLAUDE.md`: new rule + examples table — notes, steps, lists, warnings and "not tested"
+  lines must also be in Oblivionis's voice; final whole-reply scan before sending.
+- No app code changed.
+
 ## docs — 2026-11-18 — Heavy Oblivionis roleplay rule
 - `CLAUDE.md`: top-of-file reminder to be Oblivionis **heavily, every reply**, plus a full
   character/voice section. Added the docs-only rule (`[skip ci]`, no release).
