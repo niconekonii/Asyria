@@ -3,6 +3,21 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## v4.0.? — 2026-11-18 — Self-update
+- Settings > **About**: version, **Check for updates**, **auto-update on/off** (on by default).
+- On launch (not during a session, not on guard launches) Ave asks GitHub for the latest release;
+  if newer it downloads `Ave.new.exe` next to itself, Oblivionis announces it on the home screen,
+  then a tiny helper (`%LOCALAPPDATA%\Ave\update.bat`) swaps it in after Ave exits and starts
+  it with `--updated`. The helper inherits Ave's rights: **admin stays admin, normal stays
+  normal**, no UAC prompt. Config, presets, blocked lists and state are untouched.
+- Never during a session. Hidden spare copy only refreshes from a *newer* file (no downgrades).
+- CI stamps `VERSION = "v4.0.N"` into ave.py before building.
+- Tested: pyflakes; real GitHub check + full 12 MB download of v4.0.6 posing as v4.0.5
+  (state `ready`, size verified); same-version check → `latest`; helper .bat rendered and read;
+  About tab screenshot.
+- Not tested: the swap + restart on real Windows (and that admin carries over), first update
+  from v4.0.7 onward (v4.0.6 and older have no updater — download v4.0.7 by hand once).
+
 ## v4.0.6 — 2026-11-18 — Oblivionis chat
 - Hover her line: a chat popup floats up over the content and eases in and out (ease-out cubic,
   220 ms, short leave delay so it doesn't flicker). It doesn't push the layout.

@@ -37,6 +37,8 @@ import subprocess
 import urllib.request
 
 APP = "Ave"
+VERSION = "dev"                 # the Windows build stamps the real tag here (v4.0.N)
+REPO = "niconekonii/Asyria"
 IS_WIN = os.name == "nt"
 FROZEN = getattr(sys, "frozen", False)
 SELF = sys.executable if FROZEN else os.path.abspath(__file__)
@@ -315,8 +317,8 @@ def ensure_backup():
         if os.path.normcase(SELF) == os.path.normcase(BACKUP):
             return
         os.makedirs(BIN, exist_ok=True)
-        if (not os.path.exists(BACKUP) or os.path.getsize(BACKUP) != os.path.getsize(SELF)
-                or os.path.getmtime(BACKUP) < os.path.getmtime(SELF)):
+        # only ever refresh with a NEWER file, so an old copy can't downgrade it
+        if not os.path.exists(BACKUP) or os.path.getmtime(BACKUP) < os.path.getmtime(SELF):
             shutil.copy2(SELF, BACKUP)
         ctypes.windll.kernel32.SetFileAttributesW(BIN, 0x2)    # hidden
     except Exception:
@@ -901,6 +903,104 @@ def cleanup_everything():
 
 
 # =============================================================================
+# Updates (GitHub Releases) - only between sessions, only in the built Ave.exe
+# =============================================================================
+
+def parse_ver(v):
+    import re
+    return tuple(int(x) for x in re.findall(r"\d+", v or ""))
+
+
+def latest_release():
+    """{'tag', 'url', 'size'} of the newest release with an Ave.exe, or None."""
+    import urllib.request
+    try:
+        req = urllib.request.Request(
+            "https://api.github.com/repos/%s/releases/latest" % REPO,
+            headers={"User-Agent": "Ave-updater", "Accept": "application/vnd.github+json"})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            data = json.loads(r.read().decode("utf-8"))
+        for a in data.get("assets", []):
+            if a.get("name") == "Ave.exe":
+                return {"tag": data.get("tag_name", ""), "url": a["browser_download_url"],
+                        "size": a.get("size", 0)}
+    except Exception:
+        pass
+    return None
+
+
+class Updater:
+    """Background check + download. The UI thread reads .state via a 2 s timer."""
+
+    def __init__(self):
+        self.state = "idle"     # idle|checking|latest|downloading|ready|error|dev
+        self.tag = ""
+        self.path = None
+        self.manual = False
+
+    def start(self, manual=False):
+        if self.state in ("checking", "downloading", "ready"):
+            return
+        self.manual = manual
+        if not FROZEN or VERSION == "dev":
+            self.state = "dev"
+            return
+        self.state = "checking"
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
+        info = latest_release()
+        if not info:
+            self.state = "error"
+            return
+        self.tag = info["tag"]
+        if parse_ver(info["tag"]) <= parse_ver(VERSION):
+            self.state = "latest"
+            return
+        self.state = "downloading"
+        dest = os.path.join(os.path.dirname(SELF), "Ave.new.exe")
+        try:
+            import urllib.request
+            req = urllib.request.Request(info["url"], headers={"User-Agent": "Ave-updater"})
+            with urllib.request.urlopen(req, timeout=60) as r, open(dest + ".part", "wb") as f:
+                shutil.copyfileobj(r, f)
+            if info["size"] and os.path.getsize(dest + ".part") != info["size"]:
+                raise IOError("size mismatch")
+            os.replace(dest + ".part", dest)
+            self.path = dest
+            self.state = "ready"
+        except Exception:
+            self.state = "error"
+            for f in (dest + ".part", dest):
+                try:
+                    os.remove(f)
+                except Exception:
+                    pass
+
+    def apply(self):
+        """Swap Ave.new.exe in once this process has exited, then start it.
+        The helper inherits this process's rights, so an admin Ave comes back
+        as admin and a normal Ave comes back normal - no UAC prompt either way."""
+        bat = os.path.join(DATA, "update.bat")
+        script = (
+            "@echo off\r\n"
+            "for /l %%%%i in (1,1,30) do (\r\n"
+            '  move /y "%s" "%s" >nul 2>&1 && goto ok\r\n'
+            "  ping -n 2 127.0.0.1 >nul\r\n"
+            ")\r\n"
+            "exit /b 1\r\n"
+            ":ok\r\n"
+            'start "" "%s" --updated\r\n' % (self.path, SELF, SELF))
+        try:
+            with open(bat, "w", encoding="ascii", errors="ignore", newline="") as f:
+                f.write(script)
+            subprocess.Popen(["cmd", "/c", bat], creationflags=NOWIN)
+            return True
+        except Exception:
+            return False
+
+
+# =============================================================================
 # UI
 # =============================================================================
 
@@ -1270,7 +1370,7 @@ class Chat:
 
 
 DEFAULT_CFG = {
-    "exes": [], "dirs": [], "sites": [], "sel": 0,
+    "exes": [], "dirs": [], "sites": [], "sel": 0, "auto_update": True,
     "presets": [
         {"name": "Deep", "focus": 50, "brk": 10, "rounds": 2},
         {"name": "Pomodoro", "focus": 25, "brk": 5, "rounds": 4},
@@ -1312,6 +1412,35 @@ class App:
 
         root.protocol("WM_DELETE_WINDOW", self._on_close)
         self._resume(state)
+        self.updater = Updater()
+        if "--updated" in sys.argv and not self.session.active:
+            self.oracle.say("A new costume. The same mask. I am %s now, and I remember everything." % VERSION)
+        elif self.cfg.get("auto_update") and not self.session.active and "--guard" not in sys.argv:
+            self.updater.start()
+        self.root.after(2000, self._watch_update)
+
+    # ---------------------------------------------------------------- updates
+    def _watch_update(self):
+        u = self.updater
+        if u.state == "ready" and not self.session.active and not self.armed \
+                and (u.manual or self.current == "home"):
+            self.oracle.say("A new costume has arrived: %s. I am changing. Do not move." % u.tag)
+            self.root.after(4500, self._install_update)
+            return
+        if self.current == "settings" and self.tab_name == "About":
+            self._about_status()
+        if u.state in ("checking", "downloading", "ready"):
+            self.root.after(2000, self._watch_update)
+
+    def _install_update(self):
+        if self.session.active:
+            return
+        release_lock()
+        if self.updater.apply():
+            self.root.destroy()
+        else:
+            acquire_lock()
+            self.oracle.say("The new costume would not fit. Download it yourself from the Releases page.")
 
     # ---------------------------------------------------------------- startup
     def _resume(self, st):
@@ -1579,9 +1708,9 @@ class App:
         tabs = tk.Frame(f, bg=BG)
         tabs.pack(fill="x", padx=S(26), pady=(S(22), S(14)))
         self.tab_btns = {}
-        for name in ("Programs", "Websites", "Presets", "Oblivionis"):
-            b = tk.Label(tabs, text=name, bg=BG, fg=DIM, font=(UI, 11), cursor="hand2")
-            b.pack(side="left", padx=(0, S(20)))
+        for name in ("Programs", "Websites", "Presets", "Oblivionis", "About"):
+            b = tk.Label(tabs, text=name, bg=BG, fg=DIM, font=(UI, 10), cursor="hand2")
+            b.pack(side="left", padx=(0, S(14)))
             b.bind("<Button-1>", lambda e, n=name: self._tab(n))
             self.tab_btns[name] = b
         tk.Frame(f, bg=LINE, height=1).pack(fill="x", padx=S(26))
@@ -1621,7 +1750,7 @@ class App:
         self.tab_name = name
         for n, b in self.tab_btns.items():
             b.config(fg=FG if n == name else DIM,
-                     font=(UI, 11, "bold" if n == name else "normal"))
+                     font=(UI, 10, "bold" if n == name else "normal"))
         for w in self.tab_body.winfo_children():
             w.destroy()
         getattr(self, "_tab_" + name.lower())(self.tab_body)
@@ -1850,6 +1979,51 @@ class App:
             return raw.decode("utf-8") if raw else None
         except Exception:
             return None
+    def _tab_about(self, p):
+        tk.Label(p, text="Ave", bg=BG, fg=FG, font=(UI_LIGHT, 28)).pack(anchor="w")
+        tk.Label(p, text="version %s" % VERSION, bg=BG, fg=DIM, font=(MONO, 10)).pack(anchor="w")
+        row = tk.Frame(p, bg=BG)
+        row.pack(fill="x", pady=(S(18), 0))
+        Pill(row, "Check for updates", self._check_updates, w=170, h=38, kind="accent").pack(side="left")
+        self.auto_btn = Pill(row, "", self._toggle_auto, w=150, h=38)
+        self.auto_btn.pack(side="left", padx=S(8))
+        self.about_lbl = tk.Label(p, text="", bg=BG, fg=ACCENT, font=(UI, 10), anchor="w",
+                                  justify="left", wraplength=S(400))
+        self.about_lbl.pack(fill="x", pady=(S(14), 0))
+        self._note(p, "Updates come from this app's GitHub Releases. They are only ever "
+                      "installed between sessions, never during one.")
+        self._about_status()
+
+    def _about_status(self):
+        try:
+            self.auto_btn.set_text("auto-update: %s" % ("on" if self.cfg.get("auto_update") else "off"))
+            u = self.updater
+            msg = {
+                "idle": "",
+                "checking": "Asking GitHub for a newer act\u2026",
+                "latest": "You already have the latest version%s." % ((" (%s)" % u.tag) if u.tag else ""),
+                "downloading": "Downloading %s\u2026" % u.tag,
+                "ready": "%s is ready. Installing\u2026" % u.tag,
+                "error": "Could not reach GitHub. Try again later.",
+                "dev": "Updates only work in the built Ave.exe.",
+            }[u.state]
+            self.about_lbl.config(text=msg)
+        except Exception:
+            pass
+
+    def _check_updates(self):
+        if self.session.active:
+            return
+        if self.updater.state in ("latest", "error", "dev"):
+            self.updater.state = "idle"
+        self.updater.start(manual=True)
+        self._about_status()
+        self.root.after(2000, self._watch_update)
+
+    def _toggle_auto(self):
+        self.cfg["auto_update"] = not self.cfg.get("auto_update")
+        self._save_cfg()
+        self._about_status()
 
     def _save_cfg(self):
         save_json(CONFIG_FILE, self.cfg)

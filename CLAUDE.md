@@ -121,7 +121,7 @@ Top to bottom:
 - **UI (tkinter):** `Pill` (rounded button), `Ring` (progress ring), `Oracle`
   (Oblivionis typewriter line, matrix noise glyph, blinking █, auto-speaks every ~13 s).
   `App`: header (A V E ●, settings / ● locked), screens `home`, `run`, `settings`
-  (tabs Programs / Websites / Presets), Oracle pinned at bottom. Start needs two clicks.
+  (tabs Programs / Websites / Presets / Oblivionis / About), Oracle pinned at bottom. Start needs two clicks.
   Loops: `_loop` 1 s UI, `_poll` 2 s enforce, `_heal` 30 s.
 - **Oblivionis chat:** `CHAT_SYSTEM` (character sheet + off-limits rules), `CRYCHIC` (whole-word
   trigger for the Sakiko slip, `CRYCHIC_NOTE`), `chat_call()` (Claude Messages API via urllib,
@@ -129,6 +129,11 @@ Top to bottom:
   placed over the content above her line, `enter/leave` + `_slide` ease animation, `send`,
   `motivation`, `_ask` (background thread + `_poll` queue), `_reply`. History is memory only.
   Settings tab "Oblivionis" holds the key (`_store_key`, `api_key`).
+- **Updates:** `VERSION` (stamped by CI), `REPO`, `latest_release()` (GitHub API),
+  `Updater` (background check/download to `Ave.new.exe`; `apply()` writes `update.bat` that
+  moves it over `SELF` after exit and starts it with `--updated`, inheriting admin rights).
+  `App._watch_update` (2 s) installs only when no session runs and you're on home (or after a
+  manual check). Settings tab **About**. Script mode (`VERSION == "dev"`) never updates.
 - **main():** `--cleanup` → lift all & exit. Single instance via mutex
   `Local\AveSingleton`. `--guard` launches: take over if the running Ave's heartbeat is
   >150 s old (suspended/hung); if no active session → tidy up and exit; non-admin login
@@ -181,7 +186,7 @@ Nothing below has been run on a real PC yet (only CI build + `--cleanup` smoke t
 scheduled-task guard & relaunch, IFEO launch block, hosts blocking, reboot survival,
 SEAL closing Task Scheduler, folder blocking, heartbeat takeover, delete lock & spare copy,
 dark title bar / DPI on real screens, the Oblivionis chat (real API call, DPAPI key storage,
-hover popup on a real mouse).
+hover popup on a real mouse), the self-update swap/restart.
 Deliberately open: Task Manager, cmd/PowerShell, other devices/accounts, Safe Mode,
 browser games on unlisted sites. Anti-cheat games may dislike IFEO.
 Defender may flag the unsigned PyInstaller exe: user excludes their `ave` folder and

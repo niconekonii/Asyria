@@ -17,6 +17,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Stamp version
+        shell: bash
+        run: sed -i 's/^VERSION = "dev"/VERSION = "v4.0.${{ github.run_number }}"/' ave/ave.py && grep -n '^VERSION' ave/ave.py
       - name: Build
         run: |
           pip install pyinstaller

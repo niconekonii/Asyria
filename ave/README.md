@@ -17,6 +17,8 @@ If Defender complains, exclude **both** folders: your `ave` folder and `%LOCALAP
 - Click **Start** twice. After that there's no way out until the timer ends.
 - Breaks unblock everything. The next round blocks it all again.
 - **settings** (only before a session): Programs (Browse or Running), Websites, Presets, Oblivionis.
+- **Updates:** Ave updates itself between sessions (settings > About > Check for updates, or
+  auto-update). It restarts with the same rights it had, so admin stays admin.
 - **Talk to Oblivionis:** hover over her line at the bottom. Type to her on the home screen. During a
   session, press **motivation** for a line. To let her speak freely, paste an Anthropic API key in
   **settings > Oblivionis**. The key is encrypted for your Windows account. Without one she uses her
