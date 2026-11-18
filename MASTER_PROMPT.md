@@ -13,6 +13,7 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 ## 2. Product
 - **Ave**: a no-killswitch focus timer for Windows, watched over by **Oblivionis** (Ave Mujica's Sakiko Togawa stage persona).
 - Single file `ave/ave.py`. Python stdlib + tkinter only. GitHub Actions builds `Ave.exe` on Windows.
+- Built for one user (the owner). No accounts, no profiles, no automatic breaks.
 - Hard rules: no way out during a session; nothing stays blocked after a session; lightweight.
 
 ## 3. Release flow
@@ -60,12 +61,12 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 
     The "Rounds" field is removed. The preset list row shows Name, Time, and Break Count.
     Validation: if Break Count is 1 or more, Break Time must be 1 or more.
+    Existing presets convert on first launch: Break Count = old rounds minus 1, Break Time = old break length.
 14. **Manual breaks:**
     - During focus, a **Break** button starts a break at any time. Break Time minutes. Blocks lift for the break and come back when it ends.
     - The focus countdown **pauses** during any break.
     - Each use takes one from Break Count. The count shows on the run screen and resets to the preset's value at the start of each session.
     - Break Count 0 means no Break button.
-15. **Automatic breaks:** a toggle named **"Automatic breaks"**. When on, the app takes a break by itself (countdown pauses, blocks lift for Break Time). The exact trigger is pending (section 7).
 
 ## 6. Message bank
 - 13 emotion groups of 10: Cold, Proud, Stern, Teasing, Bored, Tender-hidden, Encouraging, Melancholy, Theatrical, Mocking, Reflective, Hurt, Mask-on.
@@ -75,7 +76,6 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 - Total at launch: about 260 lines (140 bank + 120 new special-interaction lines).
 
 ## 7. Open questions
-1. **Automatic breaks scope:** one global toggle, or a separate toggle per preset?
-2. **"Choose a specific time" for automatic breaks:** does that mean (a) a break every N minutes of focus, (b) a set point in the session, or (c) a clock time of day?
-3. **Break Count and automatic breaks:** do automatic breaks use up Break Count? Proposed: no.
-4. **Existing presets:** keep how they run now (automatic breaks on, Break Count 0, Break Time kept from the old preset)? Proposed: yes.
+None. Ready for the go word.
+
+Dropped: automatic breaks (the "Automatic breaks" toggle and the rounds system). The app is for one user, so there are no accounts or profiles.

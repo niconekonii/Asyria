@@ -3,6 +3,12 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## docs — 2026-11-18 — Master prompt: automatic breaks dropped
+- `MASTER_PROMPT.md`: automatic breaks and the "Automatic breaks" toggle removed. App is for one
+  user. Existing presets convert on first launch (Break Count = old rounds minus 1). No open questions.
+- `NOTES.md`: automatic breaks removed from the untested list.
+- No app code changed.
+
 ## docs — 2026-11-18 — Master prompt: break design, notes file
 - `MASTER_PROMPT.md`: breaks decided — the focus countdown pauses during any break; presets are
   Name / Time / Break Count (0 = none) / Break Time, stacked vertically, "Rounds" removed;
