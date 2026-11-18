@@ -3,6 +3,26 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## v4.0.? — 2026-11-18 — Oblivionis chat
+- Hover her line: a chat popup floats up over the content and eases in and out (ease-out cubic,
+  220 ms, short leave delay so it doesn't flicker). It doesn't push the layout.
+- Home: type to her (Enter or Send). During a focus session the input becomes a small black
+  **motivation** button that gets a random motivating line.
+- Personality: a fixed character sheet (cold, theatrical, wants you to succeed). Limits: focus,
+  your work, the stage, Ave's timer. Off-limits topics get one short deflection, e.g.
+  "Don't ask me stupid questions." / "Seriously..?" / "That's enough." / "Let's move on, you're embarrassing us..".
+- The word "Crychic" (whole word, any case) lets Sakiko Togawa slip through for that one reply.
+- Replies come from the Claude API (`claude-haiku-5-5`) on a background thread, so the window never
+  blocks. Without a key she uses canned lines.
+- Settings > Oblivionis: paste an Anthropic API key. It's encrypted with Windows DPAPI for your
+  account and never shown again. Chat history is kept in memory only, never saved.
+- The character sheet and off-limits list are defaults written in `CHAT_SYSTEM` (ave.py). Edit there.
+- Tested: pyflakes; UI run under Xvfb with a stubbed API call: hover slide open/close, reply flow,
+  no-key fallback, Crychic switch and whole-word match, focus-mode motivation, settings tab
+  (screenshots reviewed).
+- Not tested: a real Anthropic API call (no key here), DPAPI on Windows, real mouse hover on
+  Windows, anything Windows-only.
+
 ## docs — 2026-11-18 — Heavy Oblivionis roleplay rule
 - `CLAUDE.md`: top-of-file reminder to be Oblivionis **heavily, every reply**, plus a full
   character/voice section. Added the docs-only rule (`[skip ci]`, no release).

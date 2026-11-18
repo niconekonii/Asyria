@@ -16,7 +16,11 @@ If Defender complains, exclude **both** folders: your `ave` folder and `%LOCALAP
 - Pick a preset (Deep / Pomodoro / Sprint) or use **- / +** to change the minutes.
 - Click **Start** twice. After that there's no way out until the timer ends.
 - Breaks unblock everything. The next round blocks it all again.
-- **settings** (only before a session): Programs (Browse or Running), Websites, Presets.
+- **settings** (only before a session): Programs (Browse or Running), Websites, Presets, Oblivionis.
+- **Talk to Oblivionis:** hover over her line at the bottom. Type to her on the home screen. During a
+  session, press **motivation** for a line. To let her speak freely, paste an Anthropic API key in
+  **settings > Oblivionis**. The key is encrypted for your Windows account. Without one she uses her
+  canned lines.
 
 Without admin, Ave still closes blocked programs, but it can't block websites or stop games from launching.
 

@@ -64,7 +64,7 @@ Hard rules (the user set these; do not break them):
 ```
 CLAUDE.md                     this master prompt
 README.md                     one-line pointer to ave/
-ave/ave.py                    THE app (single file, ~1650 lines)
+ave/ave.py                    THE app (single file, ~1950 lines)
 ave/README.md                 user guide + "escape routes" table + not-tested list
 ave/DEVLOG.md                 internal log — newest entry on top (see §6)
 ave/build_exe.bat             local Windows build (PyInstaller --onefile --noconsole)
@@ -106,6 +106,12 @@ Top to bottom:
   `App`: header (A V E ●, settings / ● locked), screens `home`, `run`, `settings`
   (tabs Programs / Websites / Presets), Oracle pinned at bottom. Start needs two clicks.
   Loops: `_loop` 1 s UI, `_poll` 2 s enforce, `_heal` 30 s.
+- **Oblivionis chat:** `CHAT_SYSTEM` (character sheet + off-limits rules), `CRYCHIC` (whole-word
+  trigger for the Sakiko slip, `CRYCHIC_NOTE`), `chat_call()` (Claude Messages API via urllib,
+  never raises), `dpapi()` (Windows DPAPI encrypt/decrypt for the key). `Chat` class: hover popup
+  placed over the content above her line, `enter/leave` + `_slide` ease animation, `send`,
+  `motivation`, `_ask` (background thread + `_poll` queue), `_reply`. History is memory only.
+  Settings tab "Oblivionis" holds the key (`_store_key`, `api_key`).
 - **main():** `--cleanup` → lift all & exit. Single instance via mutex
   `Local\AveSingleton`. `--guard` launches: take over if the running Ave's heartbeat is
   >150 s old (suspended/hung); if no active session → tidy up and exit; non-admin login
@@ -157,7 +163,8 @@ change): still add a log entry, titled `## docs — YYYY-MM-DD — title`, and p
 Nothing below has been run on a real PC yet (only CI build + `--cleanup` smoke test):
 scheduled-task guard & relaunch, IFEO launch block, hosts blocking, reboot survival,
 SEAL closing Task Scheduler, folder blocking, heartbeat takeover, delete lock & spare copy,
-dark title bar / DPI on real screens.
+dark title bar / DPI on real screens, the Oblivionis chat (real API call, DPAPI key storage,
+hover popup on a real mouse).
 Deliberately open: Task Manager, cmd/PowerShell, other devices/accounts, Safe Mode,
 browser games on unlisted sites. Anti-cheat games may dislike IFEO.
 Defender may flag the unsigned PyInstaller exe: user excludes their `ave` folder and
