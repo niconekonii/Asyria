@@ -3,6 +3,12 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## docs — 2026-11-18 — Master prompt: fonts, manual breaks
+- `MASTER_PROMPT.md`: fonts chosen (Georgia, Bahnschrift, Cascadia Mono), effects confirmed,
+  typewriter 10% confirmed, preset fields Name / Time / Break Time / Breaks (pending), manual
+  breaks described as not built yet (current breaks are automatic between rounds).
+- No app code changed.
+
 ## docs — 2026-11-18 — Master prompt: next update expanded
 - `MASTER_PROMPT.md`: next update now also covers auto-relaunch after a restart, the manual
   program box, ±1 timer buttons, fonts and effects, a 10% faster typewriter, and a shuffle-cycle
