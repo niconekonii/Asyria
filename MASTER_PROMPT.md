@@ -43,6 +43,11 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 3. New start sound (minor, rising) and a different end sound (major, falling).
 4. Purpose: also tests the update restart fix (v4.0.13 → this release should restart by itself).
 
+## 5e. The one way out (BUILT, release pending)
+- A single deliberately-grueling exit during a session: click her line 10x, wait 60 s, type a random 40-char
+  passphrase (wrong = regenerate), then the session ends and unblocks. "stay" cancels. `--cleanup` kept as the
+  break-glass fail-safe only. Replaces hard rule "no way out" with "one hard way out".
+
 ## 5d. Seal every exit (BUILT, release pending)
 - SEAL closes every kill/inspect tool during focus (Task Manager, cmd, PowerShell, wt, taskkill, wmic, mmc,
   schtasks, regedit, process killers). Watcher runs as AveGuard.exe so one `taskkill /im Ave.exe` misses it.
