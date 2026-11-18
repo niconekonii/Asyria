@@ -3,6 +3,30 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## v4.0.? — 2026-11-18 — Seal every reachable exit
+- **Every kill/inspect tool is sealed during focus.** On top of mmc/schtasks/regedit, SEAL now closes, on
+  sight: Task Manager, cmd, PowerShell (+ISE, pwsh), Windows Terminal, ConEmu, taskkill, tskill, WMIC,
+  regedt32, and the common process killers (Process Explorer, Process Hacker, System Informer, Process
+  Monitor, Autoruns, pskill, Sysmon, ntsd/windbg). Only during a focus session, never during a break or
+  outside one. Task Manager moved out of PROTECTED so it can be sealed; Ave's own helper calls stay exempt.
+- **Two names, not one.** The watcher runs from a differently-named copy, `AveGuard.exe`, so a single
+  `taskkill /im Ave.exe` kills only the main window — the guard survives and relaunches it (and the reverse).
+  `AveGuard.exe` is in PROTECTED and the delete-lock, held open so it cannot be deleted mid-session.
+- **Suspend is covered.** If the main Ave is suspended (heartbeat silent > 60 s) the watcher ends it and
+  relaunches a live one.
+- **The one door kept, on purpose:** `Ave.exe --cleanup` still lifts everything. It is the owner's recovery
+  and master-prompt rule §4 ("Fail-safe above all"). Not removed.
+- **Irreducibly open (stated honestly, not fixable without a signed kernel driver):** Safe Mode, a second
+  Windows account or another PC, and `--cleanup`. Two separate taskkills still fall back to the 1-minute task.
+- Internals: SEAL widened; `WATCH_EXE` (AveGuard.exe), `ensure_watch_copy()`, `relaunch_main()`, `_run()`
+  (replaces `_spawn`), `WATCH_STALE = 60 s`; `watch_decide(active, alive, stale)`; the watcher kills a
+  suspended main; hold-lock and the copy cover `AveGuard.exe`.
+- Tested: pyflakes; off-Windows — watcher/seal policy and command assembly (20 checks), enforce seals
+  cmd/taskmgr/powershell and spares notepad and Ave's own schtasks child, breaks lift the seal; earlier
+  suites pass (edit 15, digits 85, lock 9, breaks 17). Screenshots unchanged.
+- Not tested: any of it on a real Windows PC — the sealing, the two-name taskkill resistance, suspend
+  relaunch, admin inheritance of AveGuard.exe.
+
 ## v4.0.? — 2026-11-18 — Watchdog pair: near-instant relaunch when killed
 - **Harder to close:** while a session runs, Ave starts a hidden second copy of itself (`--watch`) with
   no window. It waits on the main Ave with `WaitForSingleObject`, so the instant the main window is killed
