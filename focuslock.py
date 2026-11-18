@@ -389,12 +389,20 @@ def acquire_single_instance():
 # Oblivionis flavor
 # ----------------------------------------------------------------------------
 
+OBLIVIONIS_BLUE = "#2b5fd9"   # her deep stage-blue
+
+# Original lines, written in Oblivionis's tone — hushed, theatrical, resigned.
 QUOTES = [
-    "The mask stays on. So do you.",
-    "You chose this silence. Keep it.",
-    "There is no exit. Only the work.",
-    "Look away from the game. Look at yourself.",
-    "The stage is set. Do not leave it.",
+    "The curtain has risen. There is no leaving the stage now.",
+    "You wear the mask so you need not face the silence. So do I.",
+    "Forgetting is a kindness. Focus is the price of it.",
+    "I will not save you from this. I only watch.",
+    "The play continues whether you wish it or not. Sit. Endure.",
+    "Every distraction is a small death. Let them pass.",
+    "You asked to be bound. I am only keeping the promise.",
+    "Oblivion waits at the end of the act. Not before.",
+    "Do not look for the door. There was never a door.",
+    "Breathe. The music has not finished. Neither have you.",
 ]
 
 
@@ -630,10 +638,16 @@ class App:
         self.countdown = tk.Label(self.run_frame, text="--:--", bg=BG, fg=FG,
                                   font=("Consolas", 56, "bold"))
         self.countdown.pack(pady=10)
-        self.quote_label = tk.Label(self.run_frame, text=QUOTES[0], bg=BG,
-                                    fg=DIM, font=("Consolas", 11, "italic"),
-                                    wraplength=380)
-        self.quote_label.pack(pady=30)
+        # Terminal-style line where Oblivionis "types" slowly, matrix-fashion.
+        self.quote_label = tk.Label(self.run_frame, text="", bg=BG,
+                                    fg=OBLIVIONIS_BLUE, justify="left",
+                                    font=("Consolas", 11), wraplength=400,
+                                    anchor="w")
+        self.quote_label.pack(pady=30, padx=24, fill="x")
+        self._type_job = None
+        self._type_full = ""
+        self._type_i = 0
+        self.root.after(1200, lambda: self._type_quote())
         tk.Label(self.run_frame, text="There is no stop button.", bg=BG,
                  fg="#444444", font=("Consolas", 10)).pack(side="bottom", pady=30)
 
@@ -777,12 +791,40 @@ class App:
         self._show_timer()
 
     def flash_quote(self):
-        self.root.after(0, self._flash_quote_ui)
+        # A blocked program tried to launch -> Oblivionis speaks a new line.
+        self.root.after(0, lambda: self._type_quote(force=True))
 
-    def _flash_quote_ui(self):
-        if hasattr(self, "quote_label"):
-            import random
-            self.quote_label.config(text=random.choice(QUOTES))
+    def _type_quote(self, force=False):
+        if not hasattr(self, "quote_label"):
+            return
+        import random
+        # Don't interrupt a line mid-type unless a block event forces it.
+        if self._type_job is not None and not force:
+            return
+        if self._type_job is not None:
+            try:
+                self.root.after_cancel(self._type_job)
+            except Exception:
+                pass
+        self._type_full = "> " + random.choice(QUOTES)
+        self._type_i = 0
+        self._type_step()
+
+    def _type_step(self):
+        if not hasattr(self, "quote_label"):
+            return
+        if self._type_i <= len(self._type_full):
+            shown = self._type_full[:self._type_i]
+            cursor = "_" if (self._type_i % 2 == 0) else " "
+            self.quote_label.config(text=shown + cursor)
+            self._type_i += 1
+            # ~45ms/char gives that slow, deliberate AI-terminal cadence.
+            self._type_job = self.root.after(45, self._type_step)
+        else:
+            self.quote_label.config(text=self._type_full)
+            self._type_job = None
+            # Idle a while, then she speaks again on her own.
+            self._type_job = self.root.after(9000, lambda: self._type_quote())
 
     # -- tick ----------------------------------------------------------------
     def _tick(self):
