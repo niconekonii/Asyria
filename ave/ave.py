@@ -106,7 +106,6 @@ ACCENT = "#790100"        # the red
 ACCENT_HI = "#9a1d1b"     # hover
 ACCENT_DIM = "#3a1514"    # selected chip, selected list row
 ACCENT_FG = "#f0e4e2"     # text on red
-ACCENT_TEXT = "#d4706a"   # red text on BG (4.8:1), e.g. "locked"
 ACCENT_MUTED = "#6f7f96"  # darker blue for the OBLIVIONIS // label
 HER = "#a9b9d0"           # Oblivionis's own line stays blue
 TYPE_SPEED = 0.9          # typewriter: 10% faster per character
@@ -506,6 +505,33 @@ def beep(freq=880, ms=120):
             winsound.Beep(freq, ms)
         except Exception:
             pass
+
+
+def melody(notes):
+    """Play (freq, ms) notes one after another in the background. freq 0 = a rest."""
+    if not IS_WIN:
+        return
+
+    def run():
+        for f, ms in notes:
+            if f:
+                beep(f, ms)
+            else:
+                time.sleep(ms / 1000.0)
+    threading.Thread(target=run, daemon=True).start()
+
+
+# Start: the mask goes on - a low minor chord climbing (D F A D).
+SOUND_START = [(294, 120), (349, 120), (440, 120), (587, 320)]
+# End: the curtain falls - a bright major chord stepping down, last note held (D A F# D).
+SOUND_DONE = [(1175, 160), (880, 160), (740, 160), (0, 60), (587, 520)]
+MAX_MIN = 1000          # longest focus time, typed or with the buttons
+
+
+def digits_only(text, most=4):
+    """Typing filter for number boxes: only 0-9 (no other scripts, no superscripts,
+    no signs, spaces or underscores), at most `most` digits. Empty is allowed while typing."""
+    return len(text) <= most and all("0" <= c <= "9" for c in text)
 
 
 def ticks():
@@ -1453,6 +1479,57 @@ class Ring(tk.Canvas):
         self.coords(self.dot, x - d, y - d, x + d, y + d)
         self.itemconfig(self.dot, state="normal")
 
+    def editable(self, on_commit, allowed=lambda: True):
+        """Clicking the big number opens a box to type a new value. on_commit(text).
+        allowed() False = locked (no box, no text cursor)."""
+        self.on_commit = on_commit
+        self.allowed = allowed
+        self.editing = None
+        self._close = None
+        self.tag_bind(self.big, "<Button-1>", lambda e: self.edit())
+        self.tag_bind(self.big, "<Enter>", lambda e: self.config(cursor="xterm" if allowed() else ""))
+        self.tag_bind(self.big, "<Leave>", lambda e: self.config(cursor=""))
+
+    def edit(self):
+        if self.editing or not self.allowed():
+            return
+        val = self.itemcget(self.big, "text")
+        ok = (self.register(lambda t: digits_only(t, 4)), "%P")
+        e = tk.Entry(self, bg=BG, fg=FG, insertbackground=ACCENT_HI, insertwidth=S(2),
+                     relief="flat", bd=0, highlightthickness=0, justify="center", width=4,
+                     font=(UI_LIGHT, 44), validate="key", validatecommand=ok,
+                     selectbackground=ACCENT_DIM, selectforeground=FG)
+        e.insert(0, val)
+        e.select_range(0, "end")
+        D = int(self.cget("width"))
+        self.editing = self.create_window(D / 2, D / 2 - S(4), window=e)
+        self.itemconfig(self.big, state="hidden")
+        self.itemconfig(self.small, text="type minutes · enter")
+        e.focus_set()
+        done = {"v": False}
+
+        def close(commit):
+            if done["v"]:
+                return
+            done["v"] = True
+            text = e.get()
+            self.delete(self.editing)
+            e.destroy()
+            self.editing = None
+            self.itemconfig(self.big, state="normal")
+            self._close = None
+            self.on_commit(text if commit else None)
+        self._close = close
+        e.bind("<Return>", lambda ev: close(True))
+        e.bind("<KP_Enter>", lambda ev: close(True))
+        e.bind("<Escape>", lambda ev: close(False))
+        e.bind("<FocusOut>", lambda ev: close(True))
+
+    def stop_edit(self):
+        """Keep what was typed and close the box (when another control is used)."""
+        if getattr(self, "_close", None):
+            self._close(True)
+
     def set(self, frac, big, small):
         self.frac = max(0.0, min(1.0, frac))
         self.itemconfig(self.big, text=big, font=(UI_LIGHT, 36 if len(big) > 5 else 44))
@@ -1608,6 +1685,8 @@ PRESET_FIELDS = [
     ("brk", "Break Time", ""),
 ]
 
+PRESET_DIGITS = {"focus": 4, "breaks": 2, "brk": 3}   # most digits per number field
+
 DEFAULT_CFG = {
     "exes": [], "dirs": [], "sites": [], "sel": 0, "auto_update": True,
     "presets": [
@@ -1749,7 +1828,7 @@ class App:
 
     def _header_click(self):
         if self.session.active:
-            self.oracle.say("Settings are sealed until the curtain falls.")
+            return
         elif self.current == "settings":
             self.show("home")
         else:
@@ -1762,7 +1841,7 @@ class App:
         {"home": self.home, "run": self.run, "settings": self.settings}[name].pack(
             fill="both", expand=True)
         if self.session.active:
-            self.hdr_right.config(text="● locked", fg=ACCENT_TEXT, cursor="arrow")
+            self.hdr_right.config(text="", cursor="arrow")      # no settings during a session
         else:
             self.hdr_right.config(text="done" if name == "settings" else "settings",
                                   fg=DIM, cursor="hand2")
@@ -1778,6 +1857,8 @@ class App:
         f = self.home = tk.Frame(self.body, bg=BG)
         self.home_ring = Ring(f)
         self.home_ring.pack(pady=(S(24), S(4)))
+        self.home_ring.editable(self._typed_minutes,
+                                allowed=lambda: not self.armed and not self.session.active)
         self.home_meta = tk.Label(f, text="", bg=BG, fg=DIM, font=(MONO, 9))
         self.home_meta.pack()
 
@@ -1819,14 +1900,32 @@ class App:
         self._disarm()
 
     def _select(self, i):
+        self.home_ring.stop_edit()
         self.cfg["sel"] = i
         self._save_cfg()
         self._refresh_home()
 
     def _bump(self, d):
+        self.home_ring.stop_edit()
         p = self._preset()
-        p["focus"] = max(1, min(600, p["focus"] + d))
+        p["focus"] = max(1, min(MAX_MIN, p["focus"] + d))
         self._save_cfg()
+        self._refresh_home()
+
+    def _typed_minutes(self, text):
+        """The number in the home ring was typed over. None = cancelled."""
+        if text is not None and not self.session.active and not self.armed:
+            try:
+                v = int(text) if text and digits_only(text, 4) else 0
+            except ValueError:
+                v = 0
+            if v < 1:
+                self.oracle.say("Zero minutes is not an act. It is an excuse.")
+            else:
+                if v > MAX_MIN:
+                    self.oracle.say("A thousand minutes. Even I will not hold you longer than that.")
+                self._preset()["focus"] = min(v, MAX_MIN)
+                self._save_cfg()
         self._refresh_home()
 
     def _disarm(self):
@@ -1849,6 +1948,7 @@ class App:
         self.pulse_job = self.root.after(420, self._pulse, phase + 1)
 
     def _start(self):
+        self.home_ring.stop_edit()
         if not self.armed:                       # two-click confirm, no popups
             self.armed = True
             self.start_btn.set_text("give me your life")
@@ -1870,8 +1970,7 @@ class App:
         p = self._preset()
         self.session.start(p["focus"], p["breaks"], p["brk"],
                            self.cfg["exes"], self.cfg["dirs"], self.cfg["sites"])
-        beep(880, 90)
-        beep(1320, 120)
+        melody(SOUND_START)
         self.show("run")
         self._set_pool()
         self.oracle.say_from(MASK_ON)
@@ -2012,9 +2111,7 @@ class App:
         self.root.after(30000, self._heal)
 
     def _complete(self):
-        beep(660, 100)
-        beep(880, 100)
-        beep(1320, 180)
+        melody(SOUND_DONE)
         self._raise()
         self.oracle.pool = lambda: IDLE
         self.oracle.label.config(cursor="arrow")
@@ -2194,6 +2291,9 @@ class App:
             if hint:
                 tk.Label(top, text=hint, bg=BG, fg=FAINT, font=(UI, 8), anchor="e").pack(side="right")
             ent = self._entry(form)
+            if key in PRESET_DIGITS:              # number fields: digits 0-9 only
+                ent.config(validate="key", validatecommand=(
+                    ent.register(lambda t, n=PRESET_DIGITS[key]: digits_only(t, n)), "%P"))
             ent.pack(fill="x", ipady=S(4))
             fields[key] = ent
 
@@ -2208,9 +2308,12 @@ class App:
         lb.bind("<<ListboxSelect>>", fill)
 
         def read():
+            if not all(digits_only(fields[k].get(), n) for k, n in PRESET_DIGITS.items()):
+                self.oracle.say("Numbers, please. Minutes are not poetry.")
+                return None
             try:
                 name = fields["name"].get().strip()[:14] or "Preset"
-                focus = max(1, min(600, int(fields["focus"].get())))
+                focus = max(1, min(MAX_MIN, int(fields["focus"].get())))
                 breaks = max(0, min(12, int(fields["breaks"].get() or 0)))
                 brk = max(0, min(120, int(fields["brk"].get() or 0)))
             except ValueError:

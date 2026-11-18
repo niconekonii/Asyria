@@ -29,13 +29,19 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 - Breaks are manual (Break button, up to Break Count, pauses the countdown) from v4.0.8 on.
 - v4.0.8: Red update (manual breaks, message bank, presets, chat removed).
 
-## 5. Matte update (BUILT locally, tests pass; release pending; after v4.0.8)
+## 5. Matte update (SHIPPED as v4.0.11; update-restart fix in v4.0.13)
 1. **Colours fixed, same palette:** v4.0.8 made all secondary text `#790100` on `#222222` (unreadable) and every border bright red. Now greys are muted red tints: text `DIM #b37c78`, quiet text `FAINT #946360`, red text `#d4706a`, hairlines `LINE #3b2726`, main text `#e6e1e0`. Red `#790100`/`#9a1d1b` and her blue `#a9b9d0` unchanged. Matte: no glows, flat buttons, no bright outlines.
 2. **Wordmark:** "A V E" in Georgia → `ave` in Cascadia Mono bold with a red block cursor that blinks slowly (terminal look). Same in About.
 3. **Ring:** thinner (1 px track, 3 px arc), glow removed, small head dot at the arc's end. Hour digits shrink so H:MM:SS fits.
 4. **Whole UI pass:** mono lowercase tabs with a red underline; mono lists/inputs (red caret); aligned preset columns; home = ring, break meta line, −5 −1 +1 +5, chips, Start; disabled buttons look disabled.
 5. **Break lines:** no exact times. "Ten minutes…" / "Five minutes…" rewritten (also two invented times in CAUGHT / TEASING).
 6. **Cancel a break:** during a break the button reads "end break early"; click → "back to work?" (4 s); click again → blocks back on, focus resumes. The used break is not refunded. New `BREAK_CUT` lines (10).
+
+## 5a. Small update after v4.0.13 (BUILT, release pending)
+1. Click the number in the home ring to type the minutes. Limit 1000 (buttons and preset Time too). Digits 0-9 only (ring and preset number boxes). Locked once Start is pressed.
+2. Settings hidden in the header while a session runs.
+3. New start sound (minor, rising) and a different end sound (major, falling).
+4. Purpose: also tests the update restart fix (v4.0.13 → this release should restart by itself).
 
 ## 5b. v4.0.8 plan (SHIPPED as v4.0.8)
 1. **Remove the chat completely:** the popup, input, history, the motivation button, the API code, and the Settings > Oblivionis key tab. Keep the typewriter line.

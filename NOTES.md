@@ -18,6 +18,7 @@ Each item needs a real Windows test before it's called done.
 
 Also untested, from the next update onward: manual breaks, the manual program box,
 the ±1 timer buttons, the new fonts and effects, the message bank shuffle, the typewriter speed.
+Typed minutes in the ring, the new start/end sounds.
 Matte update: the matte colours and fonts on a real screen, the wordmark cursor, ending a break early
 (blocks coming back on a real PC).
 
