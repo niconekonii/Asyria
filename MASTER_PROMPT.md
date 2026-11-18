@@ -11,7 +11,7 @@ Update this file after every tweak. After each build is done, save a snapshot to
 ## 2. Product
 - **Ave**: a no-killswitch focus timer for Windows, watched over by **Oblivionis** (Ave Mujica's Sakiko Togawa stage persona).
 - Single file `ave/ave.py`. Python stdlib + tkinter only. GitHub Actions builds `Ave.exe` on Windows.
-- Hard rules: no way out during a session; nothing stays blocked after a session; never block Task Manager, cmd or PowerShell; lightweight.
+- Hard rules: no way out during a session; nothing stays blocked after a session; lightweight.
 
 ## 3. Release flow
 - Repo `niconekonii/Asyria`. Default branch `claude/elegant-tesla-vn5sep`. Push there. Don't open PRs unless asked. Don't force-push. Don't push tags.
@@ -21,44 +21,36 @@ Update this file after every tweak. After each build is done, save a snapshot to
 
 ## 4. Shipped
 - v4.0.2 to v4.0.5: Ave, presets, blocking, typewriter, guard and escape routes, delete protection.
-- v4.0.6: Oblivionis chat (hover popup, API key in settings). **Being removed in the next update.**
-- v4.0.7: self-update from GitHub Releases (About tab, same-rights restart). Only builds from v4.0.7 on can self-update.
+- v4.0.6: Oblivionis chat (hover popup, API key in settings). **Removed in the next update.**
+- v4.0.7: self-update from GitHub Releases (About tab, same-rights restart). Builds from v4.0.7 on can self-update.
 
-## 5. Next update (decided)
+## 5. Next update (decided; a new update, after v4.0.7)
 1. **Remove the chat completely:** the popup, input, history, the motivation button, the API code, and the Settings > Oblivionis key tab. Keep the typewriter line.
-2. **Drop the word "Focus":** the home ring's "MIN FOCUS" becomes "MIN", and the run screen's "FOCUS" label goes. The number counter stays.
-3. **Start button:** says "put the mask on?". The confirm button says "give me your life".
-4. **Confirm button stays visible about 2 s longer:** the timeout goes from 4 s to 6 s.
-5. **Message bank** (100 to 250 lines, written once and stored in the app): grouped in tens, each group with its emotion label. Random pick, no repeats until the bank runs out. No API needed. Proposed 15 groups of 10 (150 lines) are in section 7.
+2. **Random message in focus:** during a focus session, clicking anywhere on her text box makes her refresh with a new random message from the bank. Outside a session she speaks as she does now.
+3. **Special interactions:** keep all existing ones (IDLE, FOCUS, CAUGHT, SEALED, RETURNED, BREAK, DONE, REFUSE). Add 15 new lines to each. Lines using `{n}` keep it.
+4. **Drop the word "Focus":** the home ring's "MIN FOCUS" becomes "MIN". The run screen's "FOCUS" label goes; the counter stays. The preset field "Focus" is renamed (proposed "Minutes", see section 7).
+5. **Start button:** says "put the mask on?". Its confirm button says "give me your life" and stays visible 6 s (was 4 s).
 6. **Palette:**
-   - Black background `#222222`
-   - Grey tones `#790100`
-   - Blue tones `#a9b9d0`
-   - Store the current palette (`#000000`, greys, `#3d63e0` blue family) so the change can be reversed.
+   - Background: `#222222` (was `#000000`).
+   - Grey tones (dim text, lines, borders): `#790100`. Low contrast accepted.
+   - Blue UI (ring arc, +/- buttons, preset highlight, Start, header dot, "locked" text): **red** `#790100`, with a lighter hover and a dark chip background (proposed values in section 7).
+   - Oblivionis's own text and the "OBLIVIONIS //" label: stay blue, `#a9b9d0`.
+   - App icon: unchanged.
+   - No stored copy of the old palette. The change is final, not reversible.
+7. **Remove the "no theme system" rule** from CLAUDE.md rule 7.
 
-## 6. Open questions
-- In focus, is there a separate button, or does clicking her line give the random message? (The Start button's "put the mask on?" is a different thing.)
-- The preset fields still say "Focus". Rename them, or leave them?
-- "CRYCHIC": with the chat gone, where is it typed? Match only the caps word, or any case?
-- Grey tones in dark red on `#222222` will have low contrast. Should dim text stay readable, or accept the lower contrast?
-- Reversibility: the old palette kept as a named constant to swap by hand, or a Settings toggle? A toggle conflicts with CLAUDE.md rule 7 ("No theme system").
+## 6. Message bank (this update)
+- 13 emotion groups of 10 = 130 lines: Cold, Proud, Stern, Teasing, Bored, Tender-hidden, Encouraging, Melancholy, Theatrical, Mocking, Reflective, Hurt, Mask-on.
+- **Crychic:** its own category of 10 lines. Oblivionis talks about her old band, CRYCHIC. It's a random prompt like any other group. Nothing is typed to trigger it.
+- Random picks, no repeats until the bank runs out.
+- Original lines in her voice. Never quote the show.
 
-## 7. Proposed message bank (15 groups of 10)
-1. Cold: unimpressed, dismissive
-2. Proud: quietly pleased
-3. Stern: strict orders
-4. Teasing: playful jabs
-5. Bored: waiting for the user
-6. Impatient: hurry up
-7. Tender-hidden: warmth never said outright
-8. Encouraging: motivation
-9. Theatrical: dramatic warnings
-10. Melancholy: the stage, oblivion, quiet
-11. Mocking: distractions
-12. Reflective: time and the act
-13. Triumphant: after a break or a win
-14. Hurt: "don't mention that around me" (her old band)
-15. Mask-on: rituals for starting a session
+## 7. Open questions
+1. Preset field name: "Minutes" for the old "Focus" field. Confirm, or give another name.
+2. Ring: the track and the arc both become `#790100`, so the progress ring may not read well. Keep the track grey, or make the arc a different red?
+3. Red shades: proposed hover `#9a1d1b` and chip background `#3a0503`. Confirm.
+4. Count: the bank is 140 lines, plus 120 new special-interaction lines, about 260 in total. That's above the earlier 100 to 250 target. OK?
+5. CLAUDE.md rule 4 still says never block Task Manager, cmd or PowerShell. It was removed from this file only. Remove it from CLAUDE.md too?
 
 ## 8. Known gaps (never run on Windows)
 Guard task and relaunch, IFEO launch block, hosts blocking, reboot survival, Task Scheduler sealing, folder blocking, heartbeat takeover, delete lock, DPI and dark title bar, the self-update helper, and every change in the next update.

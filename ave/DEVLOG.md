@@ -3,6 +3,13 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## docs — 2026-11-18 — Master prompt answers
+- `MASTER_PROMPT.md`: the next update now lists the answers (random message in focus, special
+  interactions +15 each, "Minutes" proposed for the preset field, Start/confirm labels, 6 s confirm,
+  red UI with Oblivionis kept blue, Crychic as a random 10-line category, no stored palette).
+- `CLAUDE.md` rule 7: removed "No theme system."
+- No app code changed.
+
 ## docs — 2026-11-18 — Master prompt for the next update
 - New `MASTER_PROMPT.md` (working reference, updated after every tweak) and a `history/` folder
   for per-build snapshots. Points to them from `CLAUDE.md` §3.

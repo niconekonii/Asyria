@@ -73,7 +73,7 @@ Hard rules (the user set these; do not break them):
 6. **One file, Python standard library only** (`ave/ave.py`). No pip packages at runtime.
 7. **Look:** pure `#000000` background, white / dim-grey text, **one accent** —
    Oblivionis stage-blue `#3d63e0`. Modern: rounded pills, thin progress ring, Segoe UI,
-   Cascadia Mono / Consolas for her terminal line. No theme system.
+   Cascadia Mono / Consolas for her terminal line.
 8. Lightweight: no subprocess per tick, 2 s poll, small memory.
 
 ## 3. Repo layout
