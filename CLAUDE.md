@@ -105,7 +105,7 @@ Top to bottom:
   (`BG #222222`, `SURFACE`/`SURFACE2`/`SURFACE3`, `ACCENT` red, `DIM`/`FAINT`/`LINE` matte dark red,
   `ACCENT_DIM`, `ACCENT_FG`, `RING_TRACK`, `HER #a9b9d0`), `TYPE_SPEED`.
 - **Helpers:** `beep()`, `melody(notes)` (background thread; `SOUND_START` minor rising, `SOUND_DONE`
-  major falling), `MAX_MIN = 1000`, `ticks()` = Windows uptime ms (`GetTickCount64`, clock-proof),
+  major falling), `MAX_MIN = 1000`, `digits_only()` (number boxes: 0-9 only, length cap), `ticks()` = Windows uptime ms (`GetTickCount64`, clock-proof),
   `online_time()` (HTTP Date header from google/microsoft/cloudflare), `run_elevated()` (UAC).
 - **Spare copy + delete lock:** `ensure_backup()`, `hold_files()` (open both exes without
   delete-sharing during a session), `release_files()`.
@@ -132,13 +132,13 @@ Top to bottom:
   typewriter line, matrix noise glyph, blinking █, auto-speaks every ~13 s, click = `on_click`).
   `App`: header (Wordmark, settings; nothing on the right during a session), screens `home`, `run`, `settings`
   (mono lowercase tabs with a red underline: programs / websites / presets / about), Oracle at bottom.
-  - Home: ring (click the number to type 1–1000 min, `_typed_minutes`), break meta line, −5 −1 +1 +5 buttons, preset chips (first four), Start.
+  - Home: ring (click the number to type 1–1000 min, `_typed_minutes`; locked once Start is pressed), break meta line, −5 −1 +1 +5 buttons, preset chips (first four), Start.
     Start says "put the mask on?", then "give me your life" for 6 s; `_pulse` while armed.
   - Run: ring with the countdown, "N breaks left" / "on break", "free at HH:MM", one break button
     (`_break_click`): takes a break; during a break "end break early" → "back to work?" (4 s) →
     `_end_break` (BREAK_CUT line).
   - Presets (`DEFAULT_CFG`, `PRESET_FIELDS`, `migrate_presets()`): Name / Time / Break Count /
-    Break Time, stacked. Rows are aligned mono columns "Name  N min  N breaks".
+    Break Time, stacked; number boxes filtered by `PRESET_DIGITS`. Rows are aligned mono columns "Name  N min  N breaks".
   - Programs: manual box (`add_manual`: `name` or `name.exe`), Browse, Running, Remove.
   Loops: `_loop` 1 s UI and countdown, `_poll` 2 s enforce, `_heal` 30 s.
 - **Oblivionis lines:** `IDLE, FOCUS, CAUGHT, SEALED, RETURNED, BREAK, DONE, REFUSE` (original

@@ -528,6 +528,12 @@ SOUND_DONE = [(1175, 160), (880, 160), (740, 160), (0, 60), (587, 520)]
 MAX_MIN = 1000          # longest focus time, typed or with the buttons
 
 
+def digits_only(text, most=4):
+    """Typing filter for number boxes: only 0-9 (no other scripts, no superscripts,
+    no signs, spaces or underscores), at most `most` digits. Empty is allowed while typing."""
+    return len(text) <= most and all("0" <= c <= "9" for c in text)
+
+
 def ticks():
     """Milliseconds since boot. Changing the PC clock does not affect it."""
     if IS_WIN:
@@ -1473,20 +1479,22 @@ class Ring(tk.Canvas):
         self.coords(self.dot, x - d, y - d, x + d, y + d)
         self.itemconfig(self.dot, state="normal")
 
-    def editable(self, on_commit):
-        """Clicking the big number opens a box to type a new value. on_commit(text)."""
+    def editable(self, on_commit, allowed=lambda: True):
+        """Clicking the big number opens a box to type a new value. on_commit(text).
+        allowed() False = locked (no box, no text cursor)."""
         self.on_commit = on_commit
+        self.allowed = allowed
         self.editing = None
         self._close = None
         self.tag_bind(self.big, "<Button-1>", lambda e: self.edit())
-        self.tag_bind(self.big, "<Enter>", lambda e: self.config(cursor="xterm"))
+        self.tag_bind(self.big, "<Enter>", lambda e: self.config(cursor="xterm" if allowed() else ""))
         self.tag_bind(self.big, "<Leave>", lambda e: self.config(cursor=""))
 
     def edit(self):
-        if self.editing:
+        if self.editing or not self.allowed():
             return
         val = self.itemcget(self.big, "text")
-        ok = (self.register(lambda t: t == "" or (t.isdigit() and len(t) <= 4)), "%P")
+        ok = (self.register(lambda t: digits_only(t, 4)), "%P")
         e = tk.Entry(self, bg=BG, fg=FG, insertbackground=ACCENT_HI, insertwidth=S(2),
                      relief="flat", bd=0, highlightthickness=0, justify="center", width=4,
                      font=(UI_LIGHT, 44), validate="key", validatecommand=ok,
@@ -1677,6 +1685,8 @@ PRESET_FIELDS = [
     ("brk", "Break Time", ""),
 ]
 
+PRESET_DIGITS = {"focus": 4, "breaks": 2, "brk": 3}   # most digits per number field
+
 DEFAULT_CFG = {
     "exes": [], "dirs": [], "sites": [], "sel": 0, "auto_update": True,
     "presets": [
@@ -1847,7 +1857,8 @@ class App:
         f = self.home = tk.Frame(self.body, bg=BG)
         self.home_ring = Ring(f)
         self.home_ring.pack(pady=(S(24), S(4)))
-        self.home_ring.editable(self._typed_minutes)
+        self.home_ring.editable(self._typed_minutes,
+                                allowed=lambda: not self.armed and not self.session.active)
         self.home_meta = tk.Label(f, text="", bg=BG, fg=DIM, font=(MONO, 9))
         self.home_meta.pack()
 
@@ -1903,9 +1914,9 @@ class App:
 
     def _typed_minutes(self, text):
         """The number in the home ring was typed over. None = cancelled."""
-        if text is not None and not self.session.active:
+        if text is not None and not self.session.active and not self.armed:
             try:
-                v = int(text)
+                v = int(text) if text and digits_only(text, 4) else 0
             except ValueError:
                 v = 0
             if v < 1:
@@ -2280,6 +2291,9 @@ class App:
             if hint:
                 tk.Label(top, text=hint, bg=BG, fg=FAINT, font=(UI, 8), anchor="e").pack(side="right")
             ent = self._entry(form)
+            if key in PRESET_DIGITS:              # number fields: digits 0-9 only
+                ent.config(validate="key", validatecommand=(
+                    ent.register(lambda t, n=PRESET_DIGITS[key]: digits_only(t, n)), "%P"))
             ent.pack(fill="x", ipady=S(4))
             fields[key] = ent
 
@@ -2294,6 +2308,9 @@ class App:
         lb.bind("<<ListboxSelect>>", fill)
 
         def read():
+            if not all(digits_only(fields[k].get(), n) for k, n in PRESET_DIGITS.items()):
+                self.oracle.say("Numbers, please. Minutes are not poetry.")
+                return None
             try:
                 name = fields["name"].get().strip()[:14] or "Preset"
                 focus = max(1, min(MAX_MIN, int(fields["focus"].get())))

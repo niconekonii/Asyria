@@ -38,7 +38,7 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 6. **Cancel a break:** during a break the button reads "end break early"; click → "back to work?" (4 s); click again → blocks back on, focus resumes. The used break is not refunded. New `BREAK_CUT` lines (10).
 
 ## 5a. Small update after v4.0.13 (BUILT, release pending)
-1. Click the number in the home ring to type the minutes. Limit 1000 (buttons and preset Time too).
+1. Click the number in the home ring to type the minutes. Limit 1000 (buttons and preset Time too). Digits 0-9 only (ring and preset number boxes). Locked once Start is pressed.
 2. Settings hidden in the header while a session runs.
 3. New start sound (minor, rising) and a different end sound (major, falling).
 4. Purpose: also tests the update restart fix (v4.0.13 → this release should restart by itself).

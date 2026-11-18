@@ -5,8 +5,11 @@ Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
 ## v4.0.? — 2026-11-18 — Type your minutes, settings hidden in a session, new sounds
 - **Type the minutes:** click the number in the home ring, type a new value, press Enter (Esc cancels,
-  clicking elsewhere keeps it). Digits only. The limit is 1000 minutes, also for the ± buttons and the
-  preset Time field (was 600).
+  clicking elsewhere keeps it). The limit is 1000 minutes, also for the ± buttons and the preset Time
+  field (was 600). Locked as soon as you press Start (while "give me your life" waits, and the whole session).
+- **Numbers only:** the ring box and the preset Time / Break Count / Break Time boxes accept only the digits
+  0-9, typed or pasted. Other-script digits (١٢, １２), superscripts (²), signs, spaces, dots and underscores
+  (`1_000`) are refused. Break Count takes at most 2 digits, Break Time 3, Time 4. The Name box is unchanged.
 - **Settings hidden during a session:** the header shows only the wordmark until the session ends (it
   used to say "● locked").
 - **New sounds:** Start plays a low minor chord climbing (D F A D). The end plays a bright major chord
@@ -14,11 +17,15 @@ Release numbers come from the GitHub build (`v4.0.<run_number>`).
   freezes while they sound.
 - Also a small release to test the update restart fix from v4.0.13: updating from v4.0.13 to this one
   should restart Ave by itself.
-- Internals: `melody()`, `SOUND_START`, `SOUND_DONE`, `MAX_MIN`, `Ring.editable/edit/stop_edit`,
+- Internals: `melody()`, `SOUND_START`, `SOUND_DONE`, `MAX_MIN`, `digits_only()`, `PRESET_DIGITS`,
+  `Ring.editable(on_commit, allowed)/edit/stop_edit`,
   `App._typed_minutes`. `ACCENT_TEXT` removed (unused). Areas touched: Ring, home, header, sounds.
 - Tested: pyflakes; Xvfb test (15 checks): letters and 5+ digits refused, Esc cancels, typed 45 and 1000
   saved, 9999 capped to 1000, 0 refused, +5 at 1000 stays, an open box is kept when ± or a chip is used,
-  settings shown on home and hidden in a session. Screenshots of home, typing, run reviewed.
+  settings shown on home and hidden in a session; lock test (9 checks): typed value kept on Start, locked while
+  armed and in a session, unlocked after; filter test (85 checks): 16 kinds of bad input refused in the ring and
+  all three preset number boxes, length caps, Name box still free. Break test (16) still passes. Screenshots of
+  home, typing, run reviewed.
 - Not tested: the sounds (winsound only exists on Windows), typing in the ring on a real PC, the update
   restart from v4.0.13.
 
