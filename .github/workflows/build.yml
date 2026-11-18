@@ -27,7 +27,14 @@ jobs:
         with:
           name: Ave
           path: dist/Ave.exe
+      - name: Release notes from DEVLOG
+        if: github.ref_name == github.event.repository.default_branch
+        shell: bash
+        run: |
+          awk '/^## /{n++} n==1' ave/DEVLOG.md | tail -n +2 > notes.md
+          printf '\n---\nDownload `Ave.exe`, put it in your `ave` folder, right-click > Run as administrator.\nUnsigned app: if SmartScreen warns, More info > Run anyway. Defender: exclude your `ave` folder and `%%LOCALAPPDATA%%\\Ave`.\n' >> notes.md
       - name: Publish release
+        if: github.ref_name == github.event.repository.default_branch
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v4.0.${{ github.run_number }}
@@ -35,7 +42,4 @@ jobs:
           target_commitish: ${{ github.sha }}
           make_latest: true
           files: dist/Ave.exe
-          body: |
-            **Ave** - no-killswitch focus timer, watched over by Oblivionis.
-            Download `Ave.exe`, put it anywhere (e.g. a folder called `ave`), right-click > Run as administrator.
-            Windows SmartScreen may warn because the exe is unsigned: More info > Run anyway.
+          body_path: notes.md
