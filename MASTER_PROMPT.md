@@ -43,6 +43,12 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 3. New start sound (minor, rising) and a different end sound (major, falling).
 4. Purpose: also tests the update restart fix (v4.0.13 → this release should restart by itself).
 
+## 5d. Seal every exit (BUILT, release pending)
+- SEAL closes every kill/inspect tool during focus (Task Manager, cmd, PowerShell, wt, taskkill, wmic, mmc,
+  schtasks, regedit, process killers). Watcher runs as AveGuard.exe so one `taskkill /im Ave.exe` misses it.
+  Suspended main (heartbeat > 60 s) is killed and relaunched. `--cleanup` kept as the owner's recovery (rule §4).
+  Irreducible gaps: Safe Mode, another account/PC, --cleanup.
+
 ## 5c. Watchdog pair (BUILT, release pending)
 - While a session runs, a hidden second Ave (`--watch`) waits on the main one and relaunches it ~1-3 s after
   it is killed, under the 1-minute AveGuard task. One watcher (mutex). Exits when the session ends; killed by

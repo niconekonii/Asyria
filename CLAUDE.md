@@ -100,8 +100,9 @@ ave/build_exe.bat             local Windows build (PyInstaller --onefile --nocon
 Top to bottom:
 - **Constants:** paths (`DATA = %LOCALAPPDATA%\Ave`, `config.json`, `state.json`,
   hidden spare exe `DATA\bin\Ave.exe`), hosts markers `# Ave begin/end`, IFEO key,
-  task name `AveGuard`, watcher mutex `AveWatcher` + `watch.pid`, `PROTECTED` (never killed), `SEAL` (escape tools closed during
-  focus: mmc, schtasks, regedit), `ALIASES` (extra domains per site), palette
+  task name `AveGuard`, watcher mutex `AveWatcher` + `watch.pid` + `AveGuard.exe` copy, `PROTECTED` (never
+  killed), `SEAL` (every kill/inspect tool closed on sight during focus: Task Manager, cmd, PowerShell, wt,
+  taskkill, wmic, mmc, schtasks, regedit, common process killers), `ALIASES` (extra domains per site), palette
   (`BG #222222`, `SURFACE`/`SURFACE2`/`SURFACE3`, `ACCENT` red, `DIM`/`FAINT`/`LINE` matte dark red,
   `ACCENT_DIM`, `ACCENT_FG`, `RING_TRACK`, `HER #a9b9d0`), `TYPE_SPEED`.
 - **Helpers:** `beep()`, `melody(notes)` (background thread; `SOUND_START` minor rising, `SOUND_DONE`
@@ -120,8 +121,8 @@ Top to bottom:
   its own value), `guard_install/exists/remove` (schtasks every 1 min, `/RL HIGHEST` if
   admin, runs `--guard`), `autostart(on)` (HKCU Run, `--guard`), `lift_all()`.
 - **Watchdog pair:** `wait_proc()` (WaitForSingleObject on a pid), `spawn_watcher()`/`watcher_running()`
-  (one hidden `--watch` copy, mutex-guarded), `run_watcher()` (relaunches the main Ave ~1-3 s after it is
-  killed while `state.active`), `watch_decide()` (pure policy), `kill_watcher()`. Layered under the
+  (one hidden `--watch` copy named `AveGuard.exe` so one `taskkill /im Ave.exe` misses it, mutex-guarded), `run_watcher()` (relaunches the main Ave ~1-3 s after it is killed, or after it is suspended > 60 s, while
+  `state.active`; via `relaunch_main()`/`ensure_watch_copy()`), `watch_decide()` (pure policy), `kill_watcher()`. Layered under the
   1-minute `AveGuard` task; exits when the session ends.
 - **Session** (no stop method by design): one focus countdown in ms (`focus_left`), paused during
   a break (`break_left`, `on_break`). `take_break()` (uses one of `breaks_left`, lifts blocks),

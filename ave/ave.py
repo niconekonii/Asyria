@@ -68,16 +68,32 @@ NOWIN = 0x08000000              # CREATE_NO_WINDOW for helper commands
 
 # Never killable, whatever the lists say (Task Manager stays free on purpose).
 PROTECTED = {
-    "explorer.exe", "taskmgr.exe", "csrss.exe", "winlogon.exe", "wininit.exe",
+    "explorer.exe", "csrss.exe", "winlogon.exe", "wininit.exe",
     "services.exe", "lsass.exe", "smss.exe", "svchost.exe", "dwm.exe",
     "system", "registry", "conhost.exe", "sihost.exe", "ctfmon.exe",
     "fontdrvhost.exe", "runtimebroker.exe", "searchhost.exe", "consent.exe",
     "startmenuexperiencehost.exe", "shellexperiencehost.exe", "textinputhost.exe",
-    "ave.exe", "python.exe", "pythonw.exe",
+    "ave.exe", "aveguard.exe", "python.exe", "pythonw.exe",
 }
-# Escape tools closed during focus. Not cmd/PowerShell: that would break too much.
-SEAL = {"mmc.exe": "Task Scheduler", "schtasks.exe": "the scheduler",
-        "regedit.exe": "the registry"}
+# Escape tools: every process you could use to end, inspect or unschedule Ave.
+# Killed on sight during a focus session (not during a break, not outside a session).
+# Ave's own helper calls (schtasks, ipconfig) are children of Ave and stay exempt.
+SEAL = {
+    "taskmgr.exe": "the Task Manager", "cmd.exe": "the Command Prompt",
+    "powershell.exe": "PowerShell", "pwsh.exe": "PowerShell",
+    "powershell_ise.exe": "PowerShell", "wt.exe": "the terminal",
+    "conemu.exe": "the terminal", "conemu64.exe": "the terminal",
+    "taskkill.exe": "taskkill", "tskill.exe": "tskill", "wmic.exe": "WMIC",
+    "mmc.exe": "the console", "schtasks.exe": "the scheduler",
+    "regedit.exe": "the registry", "regedt32.exe": "the registry",
+    "procexp.exe": "Process Explorer", "procexp64.exe": "Process Explorer",
+    "procexp32.exe": "Process Explorer", "processhacker.exe": "Process Hacker",
+    "systeminformer.exe": "System Informer", "pskill.exe": "pskill",
+    "pskill64.exe": "pskill", "procmon.exe": "Process Monitor",
+    "procmon64.exe": "Process Monitor", "autoruns.exe": "Autoruns",
+    "autoruns64.exe": "Autoruns", "autorunsc.exe": "Autoruns",
+    "sysmon.exe": "Sysmon", "ntsd.exe": "the debugger", "windbg.exe": "the debugger",
+}
 
 # Extra domains so "youtube.com" also covers youtu.be, m.youtube.com, etc.
 ALIASES = {
@@ -613,7 +629,7 @@ def hold_files():
     k.CreateFileW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p,
                               ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p]
     bad = ctypes.c_void_p(-1).value
-    for p in {SELF, BACKUP}:
+    for p in {SELF, BACKUP, WATCH_EXE}:
         if os.path.exists(p):
             h = k.CreateFileW(p, 0x80000000, 0x1, None, 3, 0, None)   # read, share read only
             if h and h != bad:
@@ -775,6 +791,9 @@ def kill(pid):
 #     it is killed. Belt to the AveGuard task's 1-minute braces. ------------------
 WATCH_MUTEX = "Local\\AveWatcher"
 WATCH_PID = os.path.join(DATA, "watch.pid")
+WATCH_EXE = os.path.join(BIN, "AveGuard.exe")   # watcher runs under a different name,
+#                        so one `taskkill /im Ave.exe` cannot catch the main and the guard at once
+WATCH_STALE = 60000             # main alive but silent this long (ms) = suspended: relaunch it
 DETACHED = 0x00000008              # DETACHED_PROCESS: outlive the parent cleanly
 _WAIT_TIMEOUT = 0x102
 
@@ -804,23 +823,46 @@ def watcher_running():
     return False
 
 
-def _spawn(extra):
-    """Start another copy of Ave (no window, detached) with `extra` args."""
+def _run(cmd):
     if not IS_WIN:
         return False
-    exe, base = launch_parts()
-    cmd = ('"%s" %s %s' % (exe, base, extra)).replace("  ", " ").strip()
     try:
-        subprocess.Popen(cmd, creationflags=NOWIN | DETACHED, close_fds=True)
+        subprocess.Popen(cmd.replace("  ", " ").strip(),
+                         creationflags=NOWIN | DETACHED, close_fds=True)
         return True
     except Exception:
         return False
 
 
+def ensure_watch_copy():
+    """Keep a hidden spare under a DIFFERENT name for the watcher to run from."""
+    if not (IS_WIN and FROZEN):
+        return
+    try:
+        os.makedirs(BIN, exist_ok=True)
+        if not os.path.exists(WATCH_EXE) or os.path.getmtime(WATCH_EXE) < os.path.getmtime(SELF):
+            shutil.copy2(SELF, WATCH_EXE)
+        ctypes.windll.kernel32.SetFileAttributesW(BIN, 0x2)    # hidden
+    except Exception:
+        pass
+
+
+def relaunch_main():
+    """Start a fresh main Ave (the Ave.exe name), same rights as this process."""
+    exe, base = launch_parts()
+    return _run('"%s" %s' % (exe, base))
+
+
 def spawn_watcher():
-    """Make sure one watcher is guarding this process. A duplicate self-exits."""
-    if IS_WIN and not watcher_running():
-        _spawn("--watch %d" % os.getpid())
+    """Make sure one watcher (AveGuard.exe) is guarding this process. A duplicate self-exits."""
+    if not IS_WIN or watcher_running():
+        return
+    ensure_watch_copy()
+    if FROZEN and os.path.exists(WATCH_EXE):
+        exe, base = WATCH_EXE, ""
+    else:
+        exe, base = launch_parts()
+    _run('"%s" %s --watch %d' % (exe, base, os.getpid()))
 
 
 def kill_watcher():
@@ -839,13 +881,14 @@ def kill_watcher():
         pass
 
 
-def watch_decide(active, status):
+def watch_decide(active, alive, stale):
     """Pure policy, so it can be tested off Windows.
-    active: is a session still live in state. status: 'alive' | 'gone'.
+    active: is a session still live in state. alive: is the main process running.
+    stale: is it running but silent past WATCH_STALE (suspended/hung).
     Returns 'stop' | 'relaunch' | 'wait'."""
     if not active:
         return "stop"
-    return "relaunch" if status == "gone" else "wait"
+    return "relaunch" if (not alive or stale) else "wait"
 
 
 def _norm_dir(d):
@@ -1209,6 +1252,7 @@ class Session:
         self.last = ticks()
         self.active = True
         ensure_backup()
+        ensure_watch_copy()
         hold_files()
         guard_install()
         autostart(True)
@@ -2585,18 +2629,19 @@ def run_watcher(target):
         pid = int(target)
         while True:
             st = state_load()
+            if not st.get("active"):
+                return
             pid = st.get("pid") or pid
-            status = wait_proc(pid, 1500) if state_load().get("active") else "gone"
-            move = watch_decide(state_load().get("active"), status)
+            alive = wait_proc(pid, 1500) == "alive"
+            st = state_load()
+            stale = alive and (ticks() - st.get("saved_tick", 0) > WATCH_STALE)
+            move = watch_decide(st.get("active"), alive, stale)
             if move == "stop":
                 return
             if move == "relaunch":
-                if not acquire_lock():     # the app is somehow already back; let it be
-                    release_lock()
-                    time.sleep(1.0)
-                    continue
-                release_lock()             # we only checked; the real app takes the lock
-                _spawn("")                 # start a fresh Ave with the same rights
+                if stale:
+                    kill(pid)              # a suspended/hung main: end it, then revive
+                relaunch_main()            # start a fresh Ave with the same rights
                 for _ in range(40):        # wait for the new app to claim a pid (~12 s)
                     time.sleep(0.3)
                     new = state_load().get("pid")
