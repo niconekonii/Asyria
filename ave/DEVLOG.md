@@ -3,7 +3,7 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
-## v4.0.? — 2026-11-18 — Self-update
+## v4.0.7 — 2026-11-18 — Self-update
 - Settings > **About**: version, **Check for updates**, **auto-update on/off** (on by default).
 - On launch (not during a session, not on guard launches) Ave asks GitHub for the latest release;
   if newer it downloads `Ave.new.exe` next to itself, Oblivionis announces it on the home screen,
@@ -14,7 +14,7 @@ Release numbers come from the GitHub build (`v4.0.<run_number>`).
 - CI stamps `VERSION = "v4.0.N"` into ave.py before building.
 - Tested: pyflakes; real GitHub check + full 12 MB download of v4.0.6 posing as v4.0.5
   (state `ready`, size verified); same-version check → `latest`; helper .bat rendered and read;
-  About tab screenshot.
+  About tab screenshot; CI stamped VERSION (step fails if the stamp is missing).
 - Not tested: the swap + restart on real Windows (and that admin carries over), first update
   from v4.0.7 onward (v4.0.6 and older have no updater — download v4.0.7 by hand once).
 
