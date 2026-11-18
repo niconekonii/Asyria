@@ -71,10 +71,13 @@ Hard rules (the user set these; do not break them):
 4. **Fail-safe above all:** if any blocker fails, fall back to plain process killing;
    **nothing may stay blocked after a session ends.** `Ave.exe --cleanup` lifts everything.
 5. **One file, Python standard library only** (`ave/ave.py`). No pip packages at runtime.
-6. **Look (v4.0.8):** `#222222` background, dark-red UI (`#790100`, hover `#9a1d1b`),
-   greys = dark red for text and lines, ring track grey `#3a3a3a`. **Oblivionis's own line stays
-   blue `#a9b9d0`.** Rounded pills, thin progress ring with a red glow. Georgia for the title,
-   Bahnschrift for UI, Bahnschrift Light for ring numbers, Cascadia Mono for her line.
+6. **Look (matte, since the Matte update):** `#222222` background, dark-red UI (`#790100`, hover
+   `#9a1d1b`). Greys are tinted with the red but muted so text stays readable (`DIM #b37c78` (4.6:1),
+   `FAINT #946360` (3.2:1, small print only), red text `ACCENT_TEXT #d4706a`, hairlines `LINE #3b2726`), main text matte off-white `#e6e1e0`, ring track grey
+   `#3a3a3a`. **Oblivionis's own line stays blue `#a9b9d0`.** No glows, no bright outlines: flat
+   rounded pills, spacing on a 4 px scale (4/8/12/16/24). Thin ring (1 px track, 3 px arc, small head dot). Feel: minimal, smooth, retro-coding.
+   Fonts: Cascadia Mono for the `ave▮` wordmark, tabs, small labels, lists and her line;
+   Bahnschrift for buttons and form labels; Bahnschrift Light for ring numbers. Georgia is gone.
 7. Lightweight: no subprocess per tick, 2 s poll, small memory.
 
 ## 3. Repo layout
@@ -85,7 +88,7 @@ MASTER_PROMPT.md              working master prompt for the next update, updated
 NOTES.md                      known gaps: code never run on a real Windows PC
 history/                      snapshot of MASTER_PROMPT.md + the update, saved after each build
 README.md                     one-line pointer to ave/
-ave/ave.py                    THE app (single file, ~2330 lines)
+ave/ave.py                    THE app (single file, ~2430 lines)
 ave/README.md                 user guide + "escape routes" table + not-tested list
 ave/DEVLOG.md                 internal log — newest entry on top (see §6)
 ave/build_exe.bat             local Windows build (PyInstaller --onefile --noconsole)
@@ -99,7 +102,8 @@ Top to bottom:
   hidden spare exe `DATA\bin\Ave.exe`), hosts markers `# Ave begin/end`, IFEO key,
   task name `AveGuard`, `PROTECTED` (never killed), `SEAL` (escape tools closed during
   focus: mmc, schtasks, regedit), `ALIASES` (extra domains per site), palette
-  (`BG #222222`, `ACCENT`/`DIM`/`LINE` dark red, `RING_TRACK`, `HER #a9b9d0`), `TYPE_SPEED`.
+  (`BG #222222`, `SURFACE`/`SURFACE2`/`SURFACE3`, `ACCENT` red, `DIM`/`FAINT`/`LINE` matte dark red,
+  `ACCENT_DIM`, `ACCENT_FG`, `RING_TRACK`, `HER #a9b9d0`), `TYPE_SPEED`.
 - **Helpers:** `ticks()` = Windows uptime ms (`GetTickCount64`, clock-proof),
   `online_time()` (HTTP Date header from google/microsoft/cloudflare), `run_elevated()` (UAC).
 - **Spare copy + delete lock:** `ensure_backup()`, `hold_files()` (open both exes without
@@ -116,25 +120,29 @@ Top to bottom:
   admin, runs `--guard`), `autostart(on)` (HKCU Run, `--guard`), `lift_all()`.
 - **Session** (no stop method by design): one focus countdown in ms (`focus_left`), paused during
   a break (`break_left`, `on_break`). `take_break()` (uses one of `breaks_left`, lifts blocks),
+  `end_break()` (ends a break early, blocks back on, the used break is not refunded),
   `advance()`/`_spend()` (spends elapsed time, emits `break_end`/`done`), `tick`, `heal` (every 30 s, not
   during a break), `enforce` (every 2 s, focus only), `finish`. `restore()`: same boot → exact uptime
   diff; after reboot → online time diff, else offline counts only this boot. Old phase-format state is
   not resumed.
-- **UI (tkinter):** `Pill` (rounded button; kinds accent / ghost / chip / ink), `Ring` (progress
-  ring with a red glow; `sweep()` winds it in on each screen change), `Oracle` (Oblivionis
+- **UI (tkinter):** `Pill` (flat rounded button; kinds accent / ghost / chip / mono; `command=None`
+  = disabled look), `Ring` (thin progress ring + head dot; digits shrink for H:MM:SS; `sweep()` winds it
+  in on each screen change), `Wordmark` (`ave` + slow-blinking red block cursor), `Oracle` (Oblivionis
   typewriter line, matrix noise glyph, blinking █, auto-speaks every ~13 s, click = `on_click`).
-  `App`: header (A V E ●, settings / ● locked), screens `home`, `run`, `settings`
-  (tabs Programs / Websites / Presets / About), Oracle pinned at bottom.
-  - Home: ±5 and ±1 buttons on the focus minutes, preset chips (first four), Start.
+  `App`: header (Wordmark, settings / ● locked), screens `home`, `run`, `settings`
+  (mono lowercase tabs with a red underline: programs / websites / presets / about), Oracle at bottom.
+  - Home: ring, break meta line, −5 −1 +1 +5 buttons, preset chips (first four), Start.
     Start says "put the mask on?", then "give me your life" for 6 s; `_pulse` while armed.
-  - Run: ring with the countdown, "N breaks left" / "ON BREAK", break button (`_take_break`),
-    "free at HH:MM".
+  - Run: ring with the countdown, "N breaks left" / "on break", "free at HH:MM", one break button
+    (`_break_click`): takes a break; during a break "end break early" → "back to work?" (4 s) →
+    `_end_break` (BREAK_CUT line).
   - Presets (`DEFAULT_CFG`, `PRESET_FIELDS`, `migrate_presets()`): Name / Time / Break Count /
-    Break Time, stacked. Rows read "Name  N min  N breaks".
+    Break Time, stacked. Rows are aligned mono columns "Name  N min  N breaks".
   - Programs: manual box (`add_manual`: `name` or `name.exe`), Browse, Running, Remove.
   Loops: `_loop` 1 s UI and countdown, `_poll` 2 s enforce, `_heal` 30 s.
 - **Oblivionis lines:** `IDLE, FOCUS, CAUGHT, SEALED, RETURNED, BREAK, DONE, REFUSE` (original
-  + 15 each), `BANK` (13 groups of 10 + CRYCHIC). `Deck` = shuffle cycle (plays every line once, then
+  + 15 each), `BREAK_CUT` (10, break ended early). Break lines never name a number of minutes (the
+  break length varies), `BANK` (13 groups of 10 + CRYCHIC). `Deck` = shuffle cycle (plays every line once, then
   reshuffles, never repeats back to back). `deck_for(lines)`, `bank_line()`. Click her text in a
   session for a bank line. Typewriter speed = `TYPE_SPEED`. The chat and API were removed in v4.0.8.
 - **Updates:** `VERSION` (stamped by CI), `REPO`, `latest_release()` (GitHub API),

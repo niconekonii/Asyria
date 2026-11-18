@@ -22,6 +22,7 @@ Emergency unblock:  Ave.exe --cleanup   (run as administrator)
 """
 
 import os
+import math
 import sys
 import json
 import time
@@ -85,18 +86,22 @@ ALIASES = {
     "tiktok.com": ["vm.tiktok.com"],
 }
 
-# ---- palette v4.0.8: #222 background, dark-red UI, Oblivionis stays blue ----
+# ---- palette v4.0.9: matte. #222 background, dark-red UI, Oblivionis stays blue ----
+# Greys are tinted with the red, but muted (low saturation) so text stays readable.
 BG = "#222222"
-SURFACE = "#1b1b1b"
-SURFACE2 = "#262626"
-LINE = "#790100"          # grey tones -> dark red (lines, borders)
-FAINT = "#790100"         # grey tones -> dark red
+SURFACE = "#1b1b1b"       # inputs and lists: sunk a little below the background
+SURFACE2 = "#2a2828"      # flat buttons
+SURFACE3 = "#332f2f"      # flat buttons, hover
+LINE = "#3b2726"          # hairlines and borders: dark matte red
+FAINT = "#946360"         # quiet text (3.2:1 on BG): small print, disabled
 RING_TRACK = "#3a3a3a"    # ring track stays grey so the red arc stands out
-DIM = "#790100"           # dim text -> dark red (low contrast accepted)
-FG = "#f2f2f4"
-ACCENT = "#790100"        # blue UI -> red
+DIM = "#b37c78"           # secondary text: dusty matte red (4.6:1 on BG)
+FG = "#e6e1e0"            # main text: matte off-white
+ACCENT = "#790100"        # the red
 ACCENT_HI = "#9a1d1b"     # hover
-ACCENT_DIM = "#3a0503"    # chip background, ring glow
+ACCENT_DIM = "#3a1514"    # selected chip, selected list row
+ACCENT_FG = "#f0e4e2"     # text on red
+ACCENT_TEXT = "#d4706a"   # red text on BG (4.8:1), e.g. "locked"
 ACCENT_MUTED = "#6f7f96"  # darker blue for the OBLIVIONIS // label
 HER = "#a9b9d0"           # Oblivionis's own line stays blue
 TYPE_SPEED = 0.9          # typewriter: 10% faster per character
@@ -161,7 +166,7 @@ CAUGHT = [
     "I saw your hand reach for {n}. The hand has been removed from the act.",
     "{n} was never part of this performance. Do not insult the stage.",
     "Ah, {n}. The old reflex. It has been noticed and it has been closed.",
-    "Ten seconds of distraction, and then {n} was swept off the stage.",
+    "A moment of distraction, and then {n} was swept off the stage.",
     "Your weakness brought {n} to the stage. I have sent it back to the wings.",
     "{n} thought it could sneak in during the second verse. It was wrong.",
     "A small betrayal, {n}. Small betrayals still count.",
@@ -220,7 +225,7 @@ BREAK = [
     "Take your rest. The stage will be as you left it.",
     "A pause is not a pardon. Breathe and come back straight.",
     "Step into the wings. Do not wander far.",
-    "Ten minutes of quiet. Spend them like a debt you intend to repay.",
+    "A little quiet. Spend it like a debt you intend to repay.",
     "Rest the hands. The mask stays on, even in the wings.",
     "The house dims. Stretch, drink water, do not open anything forbidden.",
     "You have earned a breath. Do not confuse it with a sentence served.",
@@ -229,9 +234,21 @@ BREAK = [
     "The lamps are low. Use the dark to remember why you started.",
     "Intermission is a gift I give rarely. Do not waste it on stupidity.",
     "Your shoulders are a stage too. Lower them.",
-    "Five minutes to wander. Then the music returns, whether you are ready or not.",
+    "Go, wander a little. The music returns, whether you are ready or not.",
     "The break is yours. The clock is mine. Both are finite.",
     "Let the silence settle. You will need it when the curtain rises again.",
+]
+BREAK_CUT = [      # you ended a break early
+    "Back before the bell? Good. The stage missed you, and so did I.",
+    "You cut your own intermission short. I will remember that kindly.",
+    "Returned early. The mask fits better when you choose to wear it.",
+    "No one called you back. You came anyway. That is the whole art.",
+    "The wings bored you. Of course they did. Take your place.",
+    "Rest abandoned, work resumed. I approve, quietly.",
+    "You walked back on stage before the lights asked. Continue.",
+    "Intermission over, by your own hand. The curtain obeys you this once.",
+    "Early. Hungry. That is the face I want to see behind the mask.",
+    "The rest of your break is forfeit. You will not miss it.",
 ]
 DONE = [
     "The act is over. You may remove your mask.",
@@ -317,7 +334,7 @@ TEASING = [
     "Your focus is like a cat on a windowsill. Lovely, and easily startled.",
     "I was going to say something kind, but you have not earned it yet.",
     "Ah, the great escape artist returns. Sit down, darling.",
-    "You spent three minutes deciding how to begin. Impressive procrastination.",
+    "You spent an age deciding how to begin. Impressive procrastination.",
     "I did not know you could sulk so beautifully.",
     "Every time you check the clock, I lose a little faith in your planning.",
     "Did you bring your courage, or only your excuses?",
@@ -1099,6 +1116,19 @@ class Session:
         self.save()
         return True
 
+    def end_break(self):
+        """End the current break early: blocks come back and focus resumes.
+        The break that was used is not given back."""
+        if not self.active or not self.on_break:
+            return False
+        self.advance()
+        if not self.active or not self.on_break:
+            return False
+        self.on_break, self.break_left = False, 0
+        self.apply()
+        self.save()
+        return True
+
     def apply(self):
         ifeo_block(self.exes)
         hosts_block(self.sites)
@@ -1293,7 +1323,6 @@ from tkinter import filedialog, messagebox
 
 SCALE = 1.0
 UI = UI_LIGHT = MONO = "TkDefaultFont"
-DISPLAY = "TkDefaultFont"
 
 
 def S(px):
@@ -1301,15 +1330,15 @@ def S(px):
 
 
 def setup_fonts(root):
-    global UI, UI_LIGHT, MONO, DISPLAY, SCALE
+    global UI, UI_LIGHT, MONO, SCALE
     fams = set(tkfont.families(root))
 
     def pick(*names):
         return next((n for n in names if n in fams), "TkDefaultFont")
-    UI = pick("Bahnschrift", "Segoe UI", "Helvetica")
-    UI_LIGHT = pick("Bahnschrift Light", "Bahnschrift", "Segoe UI Light", "Segoe UI", "Helvetica")
-    DISPLAY = pick("Georgia", "Times New Roman", "Times")
-    MONO = pick("Cascadia Mono", "Consolas", "Courier New")
+    UI = pick("Bahnschrift", "Segoe UI", "DejaVu Sans", "Helvetica")
+    UI_LIGHT = pick("Bahnschrift Light", "Bahnschrift SemiLight", "Segoe UI Light",
+                    "Segoe UI", "DejaVu Sans", "Helvetica")
+    MONO = pick("Cascadia Mono", "Consolas", "DejaVu Sans Mono", "Courier New")
     try:
         SCALE = max(1.0, root.winfo_fpixels("1i") / 96.0)
     except Exception:
@@ -1336,7 +1365,7 @@ def _round_pts(x1, y1, x2, y2, r):
 
 
 class Pill(tk.Canvas):
-    """Rounded button. kind: 'accent' | 'ghost' | 'chip'."""
+    """Rounded flat button. kind: 'accent' | 'ghost' | 'chip' | 'mono' (small terminal-style)."""
 
     def __init__(self, master, text, command, w=150, h=40, kind="ghost", size=10):
         super().__init__(master, width=S(w), height=S(h), bg=master.cget("bg"),
@@ -1345,8 +1374,8 @@ class Pill(tk.Canvas):
         self.command, self.kind = command, kind
         self.hover = self.selected = False
         self.shape = self.create_polygon(_round_pts(1, 1, W - 1, H - 1, H // 2), smooth=True)
-        bold = "bold" if kind == "accent" else "normal"
-        self.label = self.create_text(W / 2, H / 2, text=text, font=(UI, size, bold))
+        font = (MONO, size) if kind == "mono" else (UI, size)
+        self.label = self.create_text(W / 2, H / 2, text=text, font=font)
         self.bind("<Enter>", lambda e: self._hov(True))
         self.bind("<Leave>", lambda e: self._hov(False))
         self.bind("<ButtonRelease-1>", self._click)
@@ -1363,53 +1392,60 @@ class Pill(tk.Canvas):
     def set_text(self, t):
         self.itemconfig(self.label, text=t)
 
+    def fill(self, c):
+        self.itemconfig(self.shape, fill=c, outline=c)
+
     def paint(self):
-        h = self.hover
+        h = self.hover and self.command is not None
         if self.kind == "accent":
-            fill = out = ACCENT_HI if h else ACCENT
-            fg = "#ffffff"
-        elif self.kind == "ink":                       # small black, blue text
-            fill, out = BG, (ACCENT if h else LINE)
-            fg = ACCENT_HI if h else ACCENT
+            fill, fg = (ACCENT_HI if h else ACCENT), ACCENT_FG
         elif self.kind == "chip" and self.selected:
-            fill, out, fg = ACCENT_DIM, ACCENT, FG
+            fill, fg = ACCENT_DIM, FG
+        elif self.command is None:                     # disabled
+            fill, fg = SURFACE2, FAINT
         else:
-            fill = SURFACE2 if h else SURFACE
-            out = FAINT if h else LINE
-            fg = FG if (h or self.kind != "chip") else DIM
-        self.itemconfig(self.shape, fill=fill, outline=out)
+            fill = SURFACE3 if h else SURFACE2
+            fg = FG if (h or self.kind not in ("chip", "mono")) else DIM
+        self.fill(fill)
+        self.config(cursor="hand2" if self.command else "arrow")
         self.itemconfig(self.label, fill=fg)
 
 
 class Ring(tk.Canvas):
-    """Thin progress ring with a red glow and big centred digits. Winds in on sweep()."""
+    """Thin progress ring: hairline track, a thin red arc with a small head dot,
+    big centred digits. Winds in on sweep()."""
     SWEEP_S = 0.35
+    ARC_W = 3          # arc thickness (px at 100% scale)
 
     def __init__(self, master, size=250):
         D = S(size)
         super().__init__(master, width=D, height=D, bg=BG, highlightthickness=0, bd=0)
         p = S(12)
-        self.create_oval(p, p, D - p, D - p, outline=RING_TRACK, width=S(2))
-        self.glow = self.create_arc(p, p, D - p, D - p, start=90, extent=-359.9,
-                                    style="arc", outline=ACCENT_DIM, width=S(13))
+        self.c, self.r = D / 2, D / 2 - p
+        self.create_oval(p, p, D - p, D - p, outline=RING_TRACK, width=max(1, S(1)))
         self.arc = self.create_arc(p, p, D - p, D - p, start=90, extent=-359.9,
-                                   style="arc", outline=ACCENT, width=S(5))
-        self.big = self.create_text(D / 2, D / 2 - S(6), fill=FG, font=(UI_LIGHT, 44))
-        self.small = self.create_text(D / 2, D / 2 + S(42), fill=DIM, font=(UI, 8, "bold"))
+                                   style="arc", outline=ACCENT, width=S(self.ARC_W))
+        self.dot = self.create_oval(0, 0, 0, 0, fill=ACCENT, outline=ACCENT)
+        self.big = self.create_text(D / 2, D / 2 - S(4), fill=FG, font=(UI_LIGHT, 44))
+        self.small = self.create_text(D / 2, D / 2 + S(40), fill=DIM, font=(MONO, 9))
         self.frac = 1.0
         self.sweeping = False
 
     def _draw(self, frac):
         if frac <= 0.001:
             self.itemconfig(self.arc, state="hidden")
-            self.itemconfig(self.glow, state="hidden")
-        else:
-            self.itemconfig(self.arc, state="normal", extent=-359.9 * frac)
-            self.itemconfig(self.glow, state="normal", extent=-359.9 * frac)
+            self.itemconfig(self.dot, state="hidden")
+            return
+        self.itemconfig(self.arc, state="normal", extent=-359.9 * frac)
+        a = math.radians(90 - 360 * frac)
+        x, y = self.c + self.r * math.cos(a), self.c - self.r * math.sin(a)
+        d = S(self.ARC_W + 4) / 2
+        self.coords(self.dot, x - d, y - d, x + d, y + d)
+        self.itemconfig(self.dot, state="normal")
 
     def set(self, frac, big, small):
         self.frac = max(0.0, min(1.0, frac))
-        self.itemconfig(self.big, text=big)
+        self.itemconfig(self.big, text=big, font=(UI_LIGHT, 36 if len(big) > 5 else 44))
         self.itemconfig(self.small, text=small)
         if not self.sweeping:
             self._draw(self.frac)
@@ -1429,6 +1465,29 @@ class Ring(tk.Canvas):
             else:
                 self.sweeping = False
         step()
+
+
+class Wordmark(tk.Canvas):
+    """'ave' in mono with a red block cursor, like a terminal prompt. The cursor blinks slowly."""
+
+    def __init__(self, master, size=13, blink=True):
+        f = tkfont.Font(family=MONO, size=size, weight="bold")
+        w, h = f.measure("ave"), f.metrics("linespace")
+        cw = f.measure("a")
+        super().__init__(master, width=w + S(4) + cw, height=h, bg=master.cget("bg"),
+                         highlightthickness=0, bd=0)
+        self.create_text(0, h / 2, text="ave", anchor="w", fill=FG, font=f)
+        base = h - f.metrics("descent")
+        top = base - int(f.metrics("ascent") * 0.72)
+        self.cur = self.create_rectangle(w + S(4), top, w + S(4) + cw, base, fill=ACCENT, width=0)
+        self.on = True
+        if blink:
+            self.after(900, self._blink)
+
+    def _blink(self):
+        self.on = not self.on
+        self.itemconfig(self.cur, state="normal" if self.on else "hidden")
+        self.after(900 if self.on else 600, self._blink)
 
 
 def spaced(s):
@@ -1476,10 +1535,10 @@ class Oracle:
         self.frame = tk.Frame(master, bg=BG)
         tk.Frame(self.frame, bg=LINE, height=1).pack(fill="x")
         tk.Label(self.frame, text="OBLIVIONIS  //", bg=BG, fg=ACCENT_MUTED,
-                 font=(MONO, 8, "bold"), anchor="w").pack(fill="x", padx=S(26), pady=(S(14), S(4)))
+                 font=(MONO, 8, "bold"), anchor="w").pack(fill="x", padx=S(24), pady=(S(16), S(4)))
         self.label = tk.Label(self.frame, text="", bg=BG, fg=HER, font=(MONO, 10),
                               anchor="nw", justify="left", wraplength=S(400), height=3)
-        self.label.pack(fill="x", padx=S(26), pady=(0, S(14)))
+        self.label.pack(fill="x", padx=S(24), pady=(0, S(16)))
         self.label.bind("<Button-1>", lambda e: self.on_click and self.on_click())
         self.job = None
         self.full = ""
@@ -1666,10 +1725,9 @@ class App:
     # ----------------------------------------------------------------- header
     def _build_header(self):
         h = tk.Frame(self.root, bg=BG)
-        h.pack(fill="x", padx=S(26), pady=(S(20), 0))
-        tk.Label(h, text="A V E", bg=BG, fg=FG, font=(DISPLAY, 12, "bold")).pack(side="left")
-        tk.Label(h, text="  ●", bg=BG, fg=ACCENT, font=(UI, 7)).pack(side="left")
-        self.hdr_right = tk.Label(h, text="settings", bg=BG, fg=DIM, font=(UI, 10), cursor="hand2")
+        h.pack(fill="x", padx=S(24), pady=(S(16), 0))
+        Wordmark(h, 13).pack(side="left")
+        self.hdr_right = tk.Label(h, text="settings", bg=BG, fg=DIM, font=(MONO, 9), cursor="hand2")
         self.hdr_right.pack(side="right")
         self.hdr_right.bind("<Button-1>", lambda e: self._header_click())
         self.hdr_right.bind("<Enter>", lambda e: self._hdr_hover(True))
@@ -1694,7 +1752,7 @@ class App:
         {"home": self.home, "run": self.run, "settings": self.settings}[name].pack(
             fill="both", expand=True)
         if self.session.active:
-            self.hdr_right.config(text="● locked", fg=ACCENT, cursor="arrow")
+            self.hdr_right.config(text="● locked", fg=ACCENT_TEXT, cursor="arrow")
         else:
             self.hdr_right.config(text="done" if name == "settings" else "settings",
                                   fg=DIM, cursor="hand2")
@@ -1709,23 +1767,23 @@ class App:
     def _build_home(self):
         f = self.home = tk.Frame(self.body, bg=BG)
         self.home_ring = Ring(f)
-        self.home_ring.pack(pady=(S(26), S(10)))
+        self.home_ring.pack(pady=(S(24), S(4)))
+        self.home_meta = tk.Label(f, text="", bg=BG, fg=DIM, font=(MONO, 9))
+        self.home_meta.pack()
 
         adj = tk.Frame(f, bg=BG)
-        adj.pack()
-        Pill(adj, "−5", lambda: self._bump(-5), w=46, h=40, size=12).pack(side="left")
-        Pill(adj, "−1", lambda: self._bump(-1), w=40, h=34, size=10).pack(side="left", padx=(S(6), 0))
-        self.home_meta = tk.Label(adj, text="", bg=BG, fg=DIM, font=(UI, 10), width=22)
-        self.home_meta.pack(side="left", padx=S(6))
-        Pill(adj, "+1", lambda: self._bump(1), w=40, h=34, size=10).pack(side="left")
-        Pill(adj, "+5", lambda: self._bump(5), w=46, h=40, size=12).pack(side="left", padx=(S(6), 0))
+        adj.pack(pady=(S(16), 0))
+        for i, d in enumerate((-5, -1, 1, 5)):
+            Pill(adj, ("−%d" if d < 0 else "+%d") % abs(d), lambda d=d: self._bump(d),
+                 w=50, h=32, kind="mono", size=10).pack(
+                side="left", padx=(S(24) if i == 2 else S(4), S(4)))
 
         self.chips = tk.Frame(f, bg=BG)
-        self.chips.pack(pady=(S(22), S(22)))
+        self.chips.pack(pady=(S(16), S(24)))
 
-        self.start_btn = Pill(f, "put the mask on?", self._start, w=300, h=54, kind="accent", size=12)
+        self.start_btn = Pill(f, "put the mask on?", self._start, w=300, h=50, kind="accent", size=12)
         self.start_btn.pack()
-        self.home_note = tk.Label(f, text="", bg=BG, fg=DIM, font=(UI, 9))
+        self.home_note = tk.Label(f, text="", bg=BG, fg=FAINT, font=(MONO, 8))
         self.home_note.pack(pady=(S(12), 0))
 
     def _preset(self):
@@ -1733,18 +1791,18 @@ class App:
 
     def _refresh_home(self):
         p = self._preset()
-        self.home_ring.set(1.0, str(p["focus"]), "MIN")
+        self.home_ring.set(1.0, str(p["focus"]), "min")
         if p["breaks"] and p["brk"]:
-            meta = "%d break%s · %d min each" % (p["breaks"], "" if p["breaks"] == 1 else "s", p["brk"])
+            meta = "%d break%s × %d min" % (p["breaks"], "" if p["breaks"] == 1 else "s", p["brk"])
         else:
             meta = "no breaks"
         self.home_meta.config(text=meta)
         end = time.strftime("%H:%M", time.localtime(time.time() + p["focus"] * 60))
-        self.home_note.config(text="locked until %s, plus any breaks  ·  no stop button" % end)
+        self.home_note.config(text="locked until %s + breaks  ·  no stop button" % end)
         for w in self.chips.winfo_children():
             w.destroy()
         for i, pr in enumerate(self.cfg["presets"][:4]):
-            c = Pill(self.chips, pr["name"], lambda i=i: self._select(i), w=118, h=34, kind="chip", size=9)
+            c = Pill(self.chips, pr["name"], lambda i=i: self._select(i), w=112, h=30, kind="chip", size=9)
             c.selected = i == self.cfg["sel"]
             c.paint()
             c.pack(side="left", padx=S(4))
@@ -1777,8 +1835,7 @@ class App:
         if not self.armed:
             self.pulse_job = None
             return
-        c = ACCENT_HI if phase % 2 else ACCENT
-        self.start_btn.itemconfig(self.start_btn.shape, fill=c, outline=c)
+        self.start_btn.fill(ACCENT_HI if phase % 2 else ACCENT)
         self.pulse_job = self.root.after(420, self._pulse, phase + 1)
 
     def _start(self):
@@ -1814,13 +1871,15 @@ class App:
     def _build_run(self):
         f = self.run = tk.Frame(self.body, bg=BG)
         self.run_ring = Ring(f, size=280)
-        self.run_ring.pack(pady=(S(30), S(14)))
-        self.run_end = tk.Label(f, text="", bg=BG, fg=DIM, font=(UI, 10))
+        self.run_ring.pack(pady=(S(24), S(8)))
+        self.run_end = tk.Label(f, text="", bg=BG, fg=DIM, font=(MONO, 9))
         self.run_end.pack()
-        self.break_btn = Pill(f, "", self._take_break, w=240, h=40, size=10)
-        self.break_btn.pack(pady=(S(18), 0))
+        self.break_btn = Pill(f, "", self._break_click, w=240, h=40, size=10)
+        self.break_btn.pack(pady=(S(24), 0))
+        self.break_armed = False
+        self.break_arm_job = None
         tk.Label(f, text="there is no stop button.", bg=BG, fg=FAINT,
-                 font=(UI, 9)).pack(side="bottom", pady=S(12))
+                 font=(MONO, 8)).pack(side="bottom", pady=S(12))
 
     def _set_pool(self):
         s = self.session
@@ -1828,19 +1887,44 @@ class App:
 
     def _refresh_break(self):
         s = self.session
+        b = self.break_btn
+        b.kind = "ghost"
         if s.break_ms == 0:
-            self.break_btn.set_text("no breaks in this preset")
-            self.break_btn.command = None
+            b.set_text("no breaks in this preset")
+            b.command = None
         elif s.on_break:
-            self.break_btn.set_text("on break")
-            self.break_btn.command = None
+            b.command = self._break_click
+            if self.break_armed:
+                b.set_text("back to work?")
+                b.kind = "accent"
+            else:
+                b.set_text("end break early")
         elif s.breaks_left > 0:
-            self.break_btn.set_text("take a break (%d left)" % s.breaks_left)
-            self.break_btn.command = self._take_break
+            b.set_text("take a break  (%d left)" % s.breaks_left)
+            b.command = self._break_click
         else:
-            self.break_btn.set_text("no breaks left")
-            self.break_btn.command = None
-        self.break_btn.paint()
+            b.set_text("no breaks left")
+            b.command = None
+        b.paint()
+
+    def _break_click(self):
+        s = self.session
+        if not s.on_break:
+            self._take_break()
+        elif not self.break_armed:              # two clicks to end a break, like Start
+            self.break_armed = True
+            self.break_arm_job = self.root.after(4000, self._break_disarm)
+            self._refresh_break()
+        else:
+            self._break_disarm()
+            self._end_break()
+
+    def _break_disarm(self):
+        self.break_armed = False
+        if self.break_arm_job:
+            self.root.after_cancel(self.break_arm_job)
+            self.break_arm_job = None
+        self._refresh_break()
 
     def _take_break(self):
         if self.session.take_break():
@@ -1848,6 +1932,18 @@ class App:
             self._set_pool()
             self.oracle.say_from(BREAK)
             self._refresh_break()
+        elif not self.session.active:
+            self._complete()
+
+    def _end_break(self):
+        if self.session.end_break():
+            beep(880, 120)
+            self._set_pool()
+            self.oracle.say_from(BREAK_CUT)
+            self.run_ring.sweep()
+            self._refresh_break()
+        elif not self.session.active:
+            self._complete()
 
     def _loop(self):
         """1 s UI tick, only while a session is active."""
@@ -1859,6 +1955,7 @@ class App:
                 self._complete()
                 return
             if ev == "break_end":
+                self.break_armed = False
                 beep(880, 120)
                 self._raise()
                 self._set_pool()
@@ -1868,7 +1965,7 @@ class App:
         h, m = divmod(m, 60)
         big = ("%d:%02d:%02d" % (h, m, sec)) if h else ("%02d:%02d" % (m, sec))
         if s.on_break:
-            label = spaced("break")
+            label = "on break"
         elif s.break_ms == 0:
             label = "no breaks"
         else:
@@ -1934,51 +2031,57 @@ class App:
     def _build_settings(self):
         f = self.settings = tk.Frame(self.body, bg=BG)
         tabs = tk.Frame(f, bg=BG)
-        tabs.pack(fill="x", padx=S(26), pady=(S(22), S(14)))
+        tabs.pack(fill="x", padx=S(24), pady=(S(24), 0))
         self.tab_btns = {}
         for name in ("Programs", "Websites", "Presets", "About"):
-            b = tk.Label(tabs, text=name, bg=BG, fg=DIM, font=(UI, 10), cursor="hand2")
-            b.pack(side="left", padx=(0, S(14)))
+            col = tk.Frame(tabs, bg=BG)
+            col.pack(side="left", padx=(0, S(16)))
+            b = tk.Label(col, text=name.lower(), bg=BG, fg=DIM, font=(MONO, 10), cursor="hand2")
+            b.pack(pady=(0, S(8)))
+            bar = tk.Frame(col, bg=BG, height=S(2))
+            bar.pack(fill="x")
             b.bind("<Button-1>", lambda e, n=name: self._tab(n))
-            self.tab_btns[name] = b
-        tk.Frame(f, bg=LINE, height=1).pack(fill="x", padx=S(26))
+            b.bind("<Enter>", lambda e, n=name: n != self.tab_name and self.tab_btns[n][0].config(fg=FG))
+            b.bind("<Leave>", lambda e, n=name: n != self.tab_name and self.tab_btns[n][0].config(fg=DIM))
+            self.tab_btns[name] = (b, bar)
+        tk.Frame(f, bg=LINE, height=1).pack(fill="x", padx=S(24))
         self.tab_body = tk.Frame(f, bg=BG)
-        self.tab_body.pack(fill="both", expand=True, padx=S(26), pady=(S(14), 0))
-        self.admin_lbl = tk.Label(f, text="", bg=BG, font=(UI, 9), anchor="w")
-        self.admin_lbl.pack(fill="x", padx=S(26), pady=(0, S(10)))
+        self.tab_body.pack(fill="both", expand=True, padx=S(24), pady=(S(16), 0))
+        self.admin_lbl = tk.Label(f, text="", bg=BG, font=(MONO, 8), anchor="w")
+        self.admin_lbl.pack(fill="x", padx=S(24), pady=(0, S(12)))
         self.tab_name = "Programs"
 
     def _refresh_settings(self):
         if is_admin():
-            self.admin_lbl.config(text="● administrator  ·  full blocking", fg=ACCENT)
+            self.admin_lbl.config(text="● administrator  ·  full blocking", fg=DIM)
         else:
-            self.admin_lbl.config(text="○ not administrator  ·  programs are closed, sites not blocked", fg=DIM)
+            self.admin_lbl.config(text="○ not administrator  ·  programs closed, sites not blocked", fg=DIM)
         self._tab(self.tab_name)
 
     def _listbox(self, parent, h=8, multi=False):
-        return tk.Listbox(parent, bg=SURFACE, fg=FG, selectbackground=ACCENT,
-                          selectforeground="#ffffff", relief="flat", bd=0,
+        return tk.Listbox(parent, bg=SURFACE, fg=FG, selectbackground=ACCENT_DIM,
+                          selectforeground=FG, relief="flat", bd=0,
                           highlightthickness=1, highlightbackground=LINE,
-                          highlightcolor=ACCENT, activestyle="none", height=h,
-                          font=(UI, 10), selectmode="multiple" if multi else "browse")
+                          highlightcolor=LINE, activestyle="none", height=h,
+                          font=(MONO, 10), selectmode="multiple" if multi else "browse")
 
     def _entry(self, parent, width=None):
-        e = tk.Entry(parent, bg=SURFACE, fg=FG, insertbackground=FG, relief="flat",
-                     highlightthickness=1, highlightbackground=LINE,
-                     highlightcolor=ACCENT, font=(UI, 10))
+        e = tk.Entry(parent, bg=SURFACE, fg=FG, insertbackground=ACCENT_HI, insertwidth=S(2),
+                     relief="flat", highlightthickness=1, highlightbackground=LINE,
+                     highlightcolor=ACCENT, font=(MONO, 10))
         if width:
             e.config(width=width)
         return e
 
     def _note(self, parent, text):
         tk.Label(parent, text=text, bg=BG, fg=DIM, font=(UI, 9), anchor="w",
-                 justify="left", wraplength=S(400)).pack(fill="x", pady=(S(10), 0))
+                 justify="left", wraplength=S(400)).pack(fill="x", pady=(S(12), 0))
 
     def _tab(self, name):
         self.tab_name = name
-        for n, b in self.tab_btns.items():
-            b.config(fg=FG if n == name else DIM,
-                     font=(UI, 10, "bold" if n == name else "normal"))
+        for n, (b, bar) in self.tab_btns.items():
+            b.config(fg=FG if n == name else DIM)
+            bar.config(bg=ACCENT if n == name else BG)
         for w in self.tab_body.winfo_children():
             w.destroy()
         getattr(self, "_tab_" + name.lower())(self.tab_body)
@@ -2019,7 +2122,7 @@ class App:
         manual = tk.Frame(p, bg=BG)
         manual.pack(fill="x", pady=(S(12), 0))
         e = self._entry(manual)
-        e.pack(side="left", fill="x", expand=True, ipady=S(6))
+        e.pack(side="left", fill="x", expand=True, ipady=S(8))
         e.bind("<Return>", add_manual)
         Pill(manual, "Add", add_manual, w=70, h=34).pack(side="left", padx=(S(8), 0))
 
@@ -2034,9 +2137,9 @@ class App:
 
     def _tab_websites(self, p):
         row = tk.Frame(p, bg=BG)
-        row.pack(fill="x", pady=(0, S(10)))
+        row.pack(fill="x", pady=(0, S(12)))
         e = self._entry(row)
-        e.pack(side="left", fill="x", expand=True, ipady=S(6))
+        e.pack(side="left", fill="x", expand=True, ipady=S(8))
         lb = self._listbox(p)
 
         def add(*_):
@@ -2063,8 +2166,8 @@ class App:
                       "browser if a site still loads.")
 
     def _preset_row(self, pr):
-        return "  %s   %d min   %d break%s" % (pr["name"], pr["focus"], pr["breaks"],
-                                              "" if pr["breaks"] == 1 else "s")
+        return " %-14s %4d min   %d break%s" % (pr["name"], pr["focus"], pr["breaks"],
+                                                 "" if pr["breaks"] == 1 else "s")
 
     def _tab_presets(self, p):
         lb = self._listbox(p, h=4)
@@ -2075,12 +2178,14 @@ class App:
         form.pack(fill="x", pady=(S(12), 0))
         fields = {}
         for key, label, hint in PRESET_FIELDS:
-            tk.Label(form, text=label, bg=BG, fg=DIM, font=(UI, 9), anchor="w").pack(fill="x")
+            top = tk.Frame(form, bg=BG)
+            top.pack(fill="x", pady=(S(8), S(4)))
+            tk.Label(top, text=label, bg=BG, fg=DIM, font=(UI, 9), anchor="w").pack(side="left")
+            if hint:
+                tk.Label(top, text=hint, bg=BG, fg=FAINT, font=(UI, 8), anchor="e").pack(side="right")
             ent = self._entry(form)
             ent.pack(fill="x", ipady=S(4))
             fields[key] = ent
-            if hint:
-                tk.Label(form, text=hint, bg=BG, fg=DIM, font=(UI, 8), anchor="w").pack(fill="x")
 
         def fill(*_):
             sel = lb.curselection()
@@ -2170,9 +2275,9 @@ class App:
         win.transient(self.root)
         dark_titlebar(win)
         tk.Label(win, text="Select programs to block", bg=BG, fg=FG,
-                 font=(UI, 11, "bold")).pack(anchor="w", padx=S(18), pady=(S(16), S(10)))
+                 font=(UI, 11, "bold")).pack(anchor="w", padx=S(16), pady=(S(16), S(12)))
         lb = self._listbox(win, multi=True)
-        lb.pack(fill="both", expand=True, padx=S(18))
+        lb.pack(fill="both", expand=True, padx=S(16))
         for n in names:
             lb.insert("end", "  " + n)
 
@@ -2183,19 +2288,19 @@ class App:
                 picks.append(image_path(found[n]) or n)
             self._add_programs(picks)
             win.destroy()
-        Pill(win, "Add selected", add, w=160, h=40, kind="accent").pack(pady=S(14))
+        Pill(win, "Add selected", add, w=160, h=40, kind="accent").pack(pady=S(16))
 
     def _tab_about(self, p):
-        tk.Label(p, text="Ave", bg=BG, fg=FG, font=(DISPLAY, 28)).pack(anchor="w")
-        tk.Label(p, text="version %s" % VERSION, bg=BG, fg=DIM, font=(MONO, 10)).pack(anchor="w")
+        Wordmark(p, 26, blink=False).pack(anchor="w", pady=(S(4), S(4)))
+        tk.Label(p, text="version %s" % VERSION, bg=BG, fg=DIM, font=(MONO, 9)).pack(anchor="w")
         row = tk.Frame(p, bg=BG)
-        row.pack(fill="x", pady=(S(18), 0))
+        row.pack(fill="x", pady=(S(16), 0))
         Pill(row, "Check for updates", self._check_updates, w=170, h=38, kind="accent").pack(side="left")
         self.auto_btn = Pill(row, "", self._toggle_auto, w=150, h=38)
         self.auto_btn.pack(side="left", padx=S(8))
-        self.about_lbl = tk.Label(p, text="", bg=BG, fg=ACCENT, font=(UI, 10), anchor="w",
+        self.about_lbl = tk.Label(p, text="", bg=BG, fg=DIM, font=(MONO, 9), anchor="w",
                                   justify="left", wraplength=S(400))
-        self.about_lbl.pack(fill="x", pady=(S(14), 0))
+        self.about_lbl.pack(fill="x", pady=(S(16), 0))
         self._note(p, "Updates come from this app's GitHub Releases. They are only ever "
                       "installed between sessions, never during one.")
         self._about_status()

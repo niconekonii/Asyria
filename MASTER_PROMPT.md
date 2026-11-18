@@ -26,9 +26,18 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 - v4.0.2 to v4.0.5: Ave, presets, blocking, typewriter, guard and escape routes, delete protection.
 - v4.0.6: Oblivionis chat (hover popup, API key in settings). **Removed in the next update.**
 - v4.0.7: self-update from GitHub Releases (About tab, same-rights restart). Builds from v4.0.7 on can self-update.
-- Breaks are manual (Break button, up to Break Count, pauses the countdown) from the next update on.
+- Breaks are manual (Break button, up to Break Count, pauses the countdown) from v4.0.8 on.
+- v4.0.8: Red update (manual breaks, message bank, presets, chat removed).
 
-## 5. Next update (BUILT locally, tests pass; release pending; after v4.0.7)
+## 5. Matte update (BUILT locally, tests pass; release pending; after v4.0.8)
+1. **Colours fixed, same palette:** v4.0.8 made all secondary text `#790100` on `#222222` (unreadable) and every border bright red. Now greys are muted red tints: text `DIM #b37c78`, quiet text `FAINT #946360`, red text `#d4706a`, hairlines `LINE #3b2726`, main text `#e6e1e0`. Red `#790100`/`#9a1d1b` and her blue `#a9b9d0` unchanged. Matte: no glows, flat buttons, no bright outlines.
+2. **Wordmark:** "A V E" in Georgia → `ave` in Cascadia Mono bold with a red block cursor that blinks slowly (terminal look). Same in About.
+3. **Ring:** thinner (1 px track, 3 px arc), glow removed, small head dot at the arc's end. Hour digits shrink so H:MM:SS fits.
+4. **Whole UI pass:** mono lowercase tabs with a red underline; mono lists/inputs (red caret); aligned preset columns; home = ring, break meta line, −5 −1 +1 +5, chips, Start; disabled buttons look disabled.
+5. **Break lines:** no exact times. "Ten minutes…" / "Five minutes…" rewritten (also two invented times in CAUGHT / TEASING).
+6. **Cancel a break:** during a break the button reads "end break early"; click → "back to work?" (4 s); click again → blocks back on, focus resumes. The used break is not refunded. New `BREAK_CUT` lines (10).
+
+## 5b. v4.0.8 plan (SHIPPED as v4.0.8)
 1. **Remove the chat completely:** the popup, input, history, the motivation button, the API code, and the Settings > Oblivionis key tab. Keep the typewriter line.
 2. **Random message in focus:** during a focus session, clicking anywhere on her text box makes her refresh with a new random message from the bank. Outside a session she speaks as she does now.
 3. **Special interactions:** keep all existing ones (IDLE, FOCUS, CAUGHT, SEALED, RETURNED, BREAK, DONE, REFUSE). Add 15 new lines to each. Lines using `{n}` keep it.
@@ -45,12 +54,12 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 8. **Blocked programs:** keep the list saved permanently (it's already in config.json). Add a manual entry box in the Programs tab: type `name` or `name.exe` and it's added (`.exe` is appended if missing). During focus, every process whose name matches is killed. Protected names and bad input get a short Oblivionis line.
 9. **Timer buttons:** keep the −5 and +5 buttons. Add smaller −1 and +1 buttons beside them.
 10. **Look:**
-    - Title "AVE" and screen headings: **Georgia** (rustic serif).
+    - Title: ~~Georgia~~ replaced in the Matte update by a mono `ave▮` wordmark (red block cursor).
     - Ring numbers: **Bahnschrift Light** (techy).
     - Buttons, tabs, labels: **Bahnschrift**.
     - Oblivionis's line and label: **Cascadia Mono** (unchanged).
     - Fallbacks: Segoe UI, then Consolas. All ship with Windows, so no new dependencies.
-    - Effects: a soft red glow behind the ring arc, a short fade when switching screens, the Start button pulses while armed, and a faint glow on pills under the cursor.
+    - Effects: ~~a soft red glow behind the ring arc~~ (removed in the Matte update: thin ring, no glow), a short fade when switching screens, the Start button pulses while armed, and a faint glow on pills under the cursor.
 11. **Typewriter 10% faster:** the per-character delay goes down by 10% (about 32–70 ms becomes about 29–63 ms). Keep it as one constant, so it's easy to tune after testing.
 12. **Task Manager / cmd / PowerShell rule:** removed from CLAUDE.md. The app's PROTECTED list stays as it is.
 13. **Presets, new layout:** four fields, stacked vertically (not in a row), with these exact labels:
