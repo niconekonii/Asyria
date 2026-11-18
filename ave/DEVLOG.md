@@ -3,7 +3,7 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
-## v4.0.? — 2026-11-18 — Oblivionis chat
+## v4.0.6 — 2026-11-18 — Oblivionis chat
 - Hover her line: a chat popup floats up over the content and eases in and out (ease-out cubic,
   220 ms, short leave delay so it doesn't flicker). It doesn't push the layout.
 - Home: type to her (Enter or Send). During a focus session the input becomes a small black
