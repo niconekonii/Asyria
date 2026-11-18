@@ -3,7 +3,7 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
-## v4.0.? — 2026-11-18 — The one way out: the surrender ordeal
+## v4.0.22 — 2026-11-18 — The one way out: the surrender ordeal
 - **A single, deliberately-grueling exit** (you asked for exactly one hard way to turn Ave off during a
   session). Summon it by clicking Oblivionis's line ten times in a row. Then:
   1. A forced **60-second wait** while she taunts you; the "let me go" button is dead until it passes.
@@ -25,7 +25,7 @@ Release numbers come from the GitHub build (`v4.0.<run_number>`).
 - Not tested: the ordeal on a real Windows PC — the clicks, the real 60 s wait, typing the phrase, and that
   the session truly ends and unblocks everything there.
 
-## v4.0.? — 2026-11-18 — Seal every reachable exit
+## v4.0.20 — 2026-11-18 — Seal every reachable exit
 - **Every kill/inspect tool is sealed during focus.** On top of mmc/schtasks/regedit, SEAL now closes, on
   sight: Task Manager, cmd, PowerShell (+ISE, pwsh), Windows Terminal, ConEmu, taskkill, tskill, WMIC,
   regedt32, and the common process killers (Process Explorer, Process Hacker, System Informer, Process
@@ -49,7 +49,7 @@ Release numbers come from the GitHub build (`v4.0.<run_number>`).
 - Not tested: any of it on a real Windows PC — the sealing, the two-name taskkill resistance, suspend
   relaunch, admin inheritance of AveGuard.exe.
 
-## v4.0.? — 2026-11-18 — Watchdog pair: near-instant relaunch when killed
+## v4.0.18 — 2026-11-18 — Watchdog pair: near-instant relaunch when killed
 - **Harder to close:** while a session runs, Ave starts a hidden second copy of itself (`--watch`) with
   no window. It waits on the main Ave with `WaitForSingleObject`, so the instant the main window is killed
   (Task Manager > End task) it relaunches it in about 1-3 seconds, instead of waiting up to a minute for

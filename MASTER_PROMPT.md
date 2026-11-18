@@ -43,18 +43,18 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 3. New start sound (minor, rising) and a different end sound (major, falling).
 4. Purpose: also tests the update restart fix (v4.0.13 → this release should restart by itself).
 
-## 5e. The one way out (BUILT, release pending)
+## 5e. The one way out (SHIPPED as v4.0.22)
 - A single deliberately-grueling exit during a session: click her line 10x, wait 60 s, type a random 40-char
   passphrase (wrong = regenerate), then the session ends and unblocks. "stay" cancels. `--cleanup` kept as the
   break-glass fail-safe only. Replaces hard rule "no way out" with "one hard way out".
 
-## 5d. Seal every exit (BUILT, release pending)
+## 5d. Seal every exit (SHIPPED as v4.0.20)
 - SEAL closes every kill/inspect tool during focus (Task Manager, cmd, PowerShell, wt, taskkill, wmic, mmc,
   schtasks, regedit, process killers). Watcher runs as AveGuard.exe so one `taskkill /im Ave.exe` misses it.
   Suspended main (heartbeat > 60 s) is killed and relaunched. `--cleanup` kept as the owner's recovery (rule §4).
   Irreducible gaps: Safe Mode, another account/PC, --cleanup.
 
-## 5c. Watchdog pair (BUILT, release pending)
+## 5c. Watchdog pair (SHIPPED as v4.0.18)
 - While a session runs, a hidden second Ave (`--watch`) waits on the main one and relaunches it ~1-3 s after
   it is killed, under the 1-minute AveGuard task. One watcher (mutex). Exits when the session ends; killed by
   finish/cleanup. Open gap: `taskkill /im Ave.exe` kills both at once -> 1-minute fallback.
