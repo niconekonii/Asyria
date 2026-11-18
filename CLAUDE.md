@@ -64,6 +64,8 @@ watched over by Oblivionis.
 Hard rules (the user set these; do not break them):
 1. App opens straight to the timer: adjustable minutes, presets, Start.
 2. While a focus session runs, chosen programs are closed/blocked and chosen websites blocked.
+   Breaks are taken by hand (Break button, up to the preset's Break Count), and the
+   countdown pauses during them. Built for one user: no accounts, no profiles.
 3. **No way out:** no stop/cancel, close refused, settings locked, survives reboot,
    relaunches itself if killed.
 4. **Fail-safe above all:** if any blocker fails, fall back to plain process killing;
@@ -83,7 +85,7 @@ MASTER_PROMPT.md              working master prompt for the next update, updated
 NOTES.md                      known gaps: code never run on a real Windows PC
 history/                      snapshot of MASTER_PROMPT.md + the update, saved after each build
 README.md                     one-line pointer to ave/
-ave/ave.py                    THE app (single file, ~1950 lines)
+ave/ave.py                    THE app (single file, ~2330 lines)
 ave/README.md                 user guide + "escape routes" table + not-tested list
 ave/DEVLOG.md                 internal log — newest entry on top (see §6)
 ave/build_exe.bat             local Windows build (PyInstaller --onefile --noconsole)
@@ -96,7 +98,8 @@ Top to bottom:
 - **Constants:** paths (`DATA = %LOCALAPPDATA%\Ave`, `config.json`, `state.json`,
   hidden spare exe `DATA\bin\Ave.exe`), hosts markers `# Ave begin/end`, IFEO key,
   task name `AveGuard`, `PROTECTED` (never killed), `SEAL` (escape tools closed during
-  focus: mmc, schtasks, regedit), `ALIASES` (extra domains per site), palette.
+  focus: mmc, schtasks, regedit), `ALIASES` (extra domains per site), palette
+  (`BG #222222`, `ACCENT`/`DIM`/`LINE` dark red, `RING_TRACK`, `HER #a9b9d0`), `TYPE_SPEED`.
 - **Helpers:** `ticks()` = Windows uptime ms (`GetTickCount64`, clock-proof),
   `online_time()` (HTTP Date header from google/microsoft/cloudflare), `run_elevated()` (UAC).
 - **Spare copy + delete lock:** `ensure_backup()`, `hold_files()` (open both exes without
@@ -117,11 +120,19 @@ Top to bottom:
   during a break), `enforce` (every 2 s, focus only), `finish`. `restore()`: same boot → exact uptime
   diff; after reboot → online time diff, else offline counts only this boot. Old phase-format state is
   not resumed.
-- **UI (tkinter):** `Pill` (rounded button), `Ring` (progress ring), `Oracle`
-  (Oblivionis typewriter line, matrix noise glyph, blinking █, auto-speaks every ~13 s).
+- **UI (tkinter):** `Pill` (rounded button; kinds accent / ghost / chip / ink), `Ring` (progress
+  ring with a red glow; `sweep()` winds it in on each screen change), `Oracle` (Oblivionis
+  typewriter line, matrix noise glyph, blinking █, auto-speaks every ~13 s, click = `on_click`).
   `App`: header (A V E ●, settings / ● locked), screens `home`, `run`, `settings`
-  (tabs Programs / Websites / Presets / Oblivionis / About), Oracle pinned at bottom. Start needs two clicks.
-  Loops: `_loop` 1 s UI, `_poll` 2 s enforce, `_heal` 30 s.
+  (tabs Programs / Websites / Presets / About), Oracle pinned at bottom.
+  - Home: ±5 and ±1 buttons on the focus minutes, preset chips (first four), Start.
+    Start says "put the mask on?", then "give me your life" for 6 s; `_pulse` while armed.
+  - Run: ring with the countdown, "N breaks left" / "ON BREAK", break button (`_take_break`),
+    "free at HH:MM".
+  - Presets (`DEFAULT_CFG`, `PRESET_FIELDS`, `migrate_presets()`): Name / Time / Break Count /
+    Break Time, stacked. Rows read "Name  N min  N breaks".
+  - Programs: manual box (`add_manual`: `name` or `name.exe`), Browse, Running, Remove.
+  Loops: `_loop` 1 s UI and countdown, `_poll` 2 s enforce, `_heal` 30 s.
 - **Oblivionis lines:** `IDLE, FOCUS, CAUGHT, SEALED, RETURNED, BREAK, DONE, REFUSE` (original
   + 15 each), `BANK` (13 groups of 10 + CRYCHIC). `Deck` = shuffle cycle (plays every line once, then
   reshuffles, never repeats back to back). `deck_for(lines)`, `bank_line()`. Click her text in a
@@ -143,18 +154,21 @@ Top to bottom:
   ```
   pip install -q pyflakes && python3 -m pyflakes ave/ave.py
   ```
-  UI screenshots (tkinter only exists for `python3.12` here):
-  run the app under `xvfb-run -s "-screen 0 460x700x24" python3.12 <script>` with
-  `LOCALAPPDATA` pointed at a scratch dir, call `app.show(...)`, and grab with
-  `import -window root out.png`. Look at the PNGs before claiming UI changes work.
-  Windows-only code paths are no-ops on Linux (`IS_WIN` guards) — say so.
+  UI screenshots: tkinter is installed for `/usr/bin/python3.12` (`python3-tk`). Run the app
+  under `xvfb-run -a -s "-screen 0 600x800x24" /usr/bin/python3.12 <script>` with `LOCALAPPDATA`
+  pointed at a scratch dir, call `app.show(...)`, and grab with `import -window root out.png`.
+  Look at the PNGs before claiming UI changes work. Windows-only code paths are no-ops on
+  Linux (`IS_WIN` guards) — say so.
+  Countdown and break logic can be tested with a fake clock: replace `ave.ticks` with a
+  function that returns a settable uptime in ms, then call `session.tick()` or `advance_s`.
 - **Release:** every push to the **default branch** runs `.github/workflows/build.yml` on
   a real Windows runner: PyInstaller build → smoke test `Ave.exe --cleanup` → GitHub
   Release `v4.0.<run_number>` with `Ave.exe` attached, notes = top DEVLOG entry.
   Pushes to other branches build an artifact only (no release).
 - Tag pushes are blocked from sessions; the workflow creates tags itself. Don't push tags.
-- Check results with the GitHub MCP tools (`actions_list`, `list_releases`); wait with a
-  background `sleep`, never poll in a tight loop. A build takes ~1 minute.
+- Check results with the GitHub MCP tools (`actions_list`, `list_releases`). Foreground
+  `sleep` is blocked here: schedule a single check with `send_later` (a few minutes out) instead
+  of polling. A build takes about 1–2 minutes.
 
 ## 6. The internal log — `ave/DEVLOG.md` (mandatory)
 
@@ -172,6 +186,8 @@ For **every** change you push:
    another release). Push.
 3. Give the user the release link.
 Also update §4/§7 of this file whenever the architecture or known gaps change.
+After each build, save a snapshot to `history/<tag>.md` (the current `MASTER_PROMPT.md` plus the
+release's DEVLOG entry) in a `[skip ci]` commit.
 
 **Docs-only changes** (only `CLAUDE.md` / `DEVLOG.md` / READMEs, no app or workflow
 change): still add a log entry, titled `## docs — YYYY-MM-DD — title`, and put

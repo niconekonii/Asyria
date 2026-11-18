@@ -36,6 +36,12 @@ Release numbers come from the GitHub build (`v4.0.<run_number>`).
 - Not tested: anything on Windows (blocking, relaunch after a reboot, the real fonts, the real palette
   on a real screen, the Georgia/Bahnschrift rendering).
 
+## docs — 2026-11-18 — CLAUDE.md refreshed for the Red update
+- `CLAUDE.md`: map updated (tabs without Oblivionis, Session/breaks, UI details, presets, Programs box,
+  line count), test notes (`/usr/bin/python3.12`, fake clock), build checks via `send_later`, history
+  snapshots, known gaps pointer to `NOTES.md`.
+- No app code changed.
+
 ## docs — 2026-11-18 — Master prompt: automatic breaks dropped
 - `MASTER_PROMPT.md`: automatic breaks and the "Automatic breaks" toggle removed. App is for one
   user. Existing presets convert on first launch (Break Count = old rounds minus 1). No open questions.
