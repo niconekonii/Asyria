@@ -22,7 +22,7 @@ jobs:
         run: sed -i 's/^VERSION = "dev"/VERSION = "v4.0.${{ github.run_number }}"/' ave/ave.py && grep -n '^VERSION' ave/ave.py
       - name: Build
         run: |
-          pip install pyinstaller
+          pip install "pyinstaller>=6.10"
           pyinstaller --onefile --noconsole --name Ave ave/ave.py
       - name: Smoke test (cleanup mode runs and exits)
         run: .\dist\Ave.exe --cleanup

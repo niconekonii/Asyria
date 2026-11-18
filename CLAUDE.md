@@ -147,7 +147,8 @@ Top to bottom:
   session for a bank line. Typewriter speed = `TYPE_SPEED`. The chat and API were removed in v4.0.8.
 - **Updates:** `VERSION` (stamped by CI), `REPO`, `latest_release()` (GitHub API),
   `Updater` (background check/download to `Ave.new.exe`; `apply()` writes `update.bat` that
-  moves it over `SELF` after exit and starts it with `--updated`, inheriting admin rights).
+  moves it over `SELF` after exit and starts it with `--updated`, inheriting admin rights;
+  the helper runs with `PYINSTALLER_RESET_ENVIRONMENT=1`, set for all children when frozen).
   `App._watch_update` (2 s) installs only when no session runs and you're on home (or after a
   manual check). Settings tab **About**. Script mode (`VERSION == "dev"`) never updates.
 - **main():** `--cleanup` → lift all & exit. Single instance via mutex
