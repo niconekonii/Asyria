@@ -37,7 +37,7 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 5. **Break lines:** no exact times. "Ten minutes…" / "Five minutes…" rewritten (also two invented times in CAUGHT / TEASING).
 6. **Cancel a break:** during a break the button reads "end break early"; click → "back to work?" (4 s); click again → blocks back on, focus resumes. The used break is not refunded. New `BREAK_CUT` lines (10).
 
-## 5a. Small update after v4.0.13 (BUILT, release pending)
+## 5a. Small update after v4.0.13 (SHIPPED as v4.0.16)
 1. Click the number in the home ring to type the minutes. Limit 1000 (buttons and preset Time too). Digits 0-9 only (ring and preset number boxes). Locked once Start is pressed.
 2. Settings hidden in the header while a session runs.
 3. New start sound (minor, rising) and a different end sound (major, falling).
