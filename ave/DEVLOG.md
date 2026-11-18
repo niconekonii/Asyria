@@ -3,6 +3,21 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## v4.0.? — 2026-11-18 — Fix: update restart error
+- **Bugfix:** after "Check for updates", the new Ave.exe stopped with "Security validation failure:
+  invalid originating onefile parent process (PID not found)!". The update helper inherited the old
+  Ave's hidden PyInstaller settings, so the new exe believed it was a child of the old one, which had
+  already exited. Ave now sets `PYINSTALLER_RESET_ENVIRONMENT=1` for everything it starts, the helper
+  gets a cleaned environment, and `update.bat` sets the flag itself too.
+- The swap itself worked: the new Ave.exe was already in place, only its start failed. Updating from a
+  version older than this fix can still show the error once; open Ave.exe by hand after it. From this
+  version on, updates restart cleanly.
+- Build: PyInstaller pinned to 6.10 or newer (the version that knows the reset flag), in CI and
+  `build_exe.bat`.
+- Tested: pyflakes; on Linux, the helper's environment has no `_PYI*` / `_MEIPASS2` and has the reset flag;
+  `update.bat` contents checked.
+- Not tested: a real update on Windows from this version to the next one.
+
 ## v4.0.11 — 2026-11-18 — Matte update: readable colours, terminal wordmark, thin ring, cancel a break
 - **Colours fixed (same palette, now matte):** secondary text was `#790100` on `#222222` and almost
   invisible; every border was bright red. Greys are now muted red tints: `DIM #b37c78` (labels and help

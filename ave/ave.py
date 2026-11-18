@@ -39,6 +39,11 @@ VERSION = "dev"                 # the Windows build stamps the real tag here (v4
 REPO = "niconekonii/Asyria"
 IS_WIN = os.name == "nt"
 FROZEN = getattr(sys, "frozen", False)
+if FROZEN:
+    # Anything this exe starts (the update helper, a relaunch) must boot as a fresh Ave, not as
+    # a child of this PyInstaller one-file process. Without this the new Ave.exe stops with
+    # "invalid originating onefile parent process (PID not found)" once this one has exited.
+    os.environ["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
 SELF = sys.executable if FROZEN else os.path.abspath(__file__)
 SELF_DIR = os.path.dirname(SELF).lower().rstrip("\\") + "\\"
 
@@ -1297,6 +1302,8 @@ class Updater:
         bat = os.path.join(DATA, "update.bat")
         script = (
             "@echo off\r\n"
+            "set PYINSTALLER_RESET_ENVIRONMENT=1\r\n"
+            "set _MEIPASS2=\r\n"
             "for /l %%%%i in (1,1,30) do (\r\n"
             '  move /y "%s" "%s" >nul 2>&1 && goto ok\r\n'
             "  ping -n 2 127.0.0.1 >nul\r\n"
@@ -1307,7 +1314,10 @@ class Updater:
         try:
             with open(bat, "w", encoding="ascii", errors="ignore", newline="") as f:
                 f.write(script)
-            subprocess.Popen(["cmd", "/c", bat], creationflags=NOWIN)
+            env = {k: v for k, v in os.environ.items()
+                   if not k.upper().startswith("_PYI") and k.upper() != "_MEIPASS2"}
+            env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+            subprocess.Popen(["cmd", "/c", bat], creationflags=NOWIN, env=env)
             return True
         except Exception:
             return False

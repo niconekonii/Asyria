@@ -14,6 +14,7 @@ Each item needs a real Windows test before it's called done.
 - Delete lock and the hidden spare copy
 - DPI scaling and the dark title bar
 - The self-update helper (swap, restart with the same rights)
+- The update restart fix (PYINSTALLER_RESET_ENVIRONMENT): first real update from v4.0.12+ to a newer one
 
 Also untested, from the next update onward: manual breaks, the manual program box,
 the ±1 timer buttons, the new fonts and effects, the message bank shuffle, the typewriter speed.
