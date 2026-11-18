@@ -72,10 +72,10 @@ Hard rules (the user set these; do not break them):
    **nothing may stay blocked after a session ends.** `Ave.exe --cleanup` lifts everything.
 5. **One file, Python standard library only** (`ave/ave.py`). No pip packages at runtime.
 6. **Look (matte, since the Matte update):** `#222222` background, dark-red UI (`#790100`, hover
-   `#9a1d1b`). Greys are tinted with the red but muted so text stays readable (`DIM #9a6460`,
-   `FAINT #6e4542`, hairlines `LINE #3b2726`), main text matte off-white `#e6e1e0`, ring track grey
+   `#9a1d1b`). Greys are tinted with the red but muted so text stays readable (`DIM #b37c78` (4.6:1),
+   `FAINT #946360` (3.2:1, small print only), red text `ACCENT_TEXT #d4706a`, hairlines `LINE #3b2726`), main text matte off-white `#e6e1e0`, ring track grey
    `#3a3a3a`. **Oblivionis's own line stays blue `#a9b9d0`.** No glows, no bright outlines: flat
-   rounded pills. Thin ring (1 px track, 3 px arc, small head dot). Feel: minimal, smooth, retro-coding.
+   rounded pills, spacing on a 4 px scale (4/8/12/16/24). Thin ring (1 px track, 3 px arc, small head dot). Feel: minimal, smooth, retro-coding.
    Fonts: Cascadia Mono for the `ave▮` wordmark, tabs, small labels, lists and her line;
    Bahnschrift for buttons and form labels; Bahnschrift Light for ring numbers. Georgia is gone.
 7. Lightweight: no subprocess per tick, 2 s poll, small memory.

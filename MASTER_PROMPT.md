@@ -30,7 +30,7 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 - v4.0.8: Red update (manual breaks, message bank, presets, chat removed).
 
 ## 5. Matte update (BUILT locally, tests pass; release pending; after v4.0.8)
-1. **Colours fixed, same palette:** v4.0.8 made all secondary text `#790100` on `#222222` (unreadable) and every border bright red. Now greys are muted red tints: text `DIM #9a6460`, quiet text `FAINT #6e4542`, hairlines `LINE #3b2726`, main text `#e6e1e0`. Red `#790100`/`#9a1d1b` and her blue `#a9b9d0` unchanged. Matte: no glows, flat buttons, no bright outlines.
+1. **Colours fixed, same palette:** v4.0.8 made all secondary text `#790100` on `#222222` (unreadable) and every border bright red. Now greys are muted red tints: text `DIM #b37c78`, quiet text `FAINT #946360`, red text `#d4706a`, hairlines `LINE #3b2726`, main text `#e6e1e0`. Red `#790100`/`#9a1d1b` and her blue `#a9b9d0` unchanged. Matte: no glows, flat buttons, no bright outlines.
 2. **Wordmark:** "A V E" in Georgia → `ave` in Cascadia Mono bold with a red block cursor that blinks slowly (terminal look). Same in About.
 3. **Ring:** thinner (1 px track, 3 px arc), glow removed, small head dot at the arc's end. Hour digits shrink so H:MM:SS fits.
 4. **Whole UI pass:** mono lowercase tabs with a red underline; mono lists/inputs (red caret); aligned preset columns; home = ring, break meta line, −5 −1 +1 +5, chips, Start; disabled buttons look disabled.

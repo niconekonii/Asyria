@@ -93,14 +93,15 @@ SURFACE = "#1b1b1b"       # inputs and lists: sunk a little below the background
 SURFACE2 = "#2a2828"      # flat buttons
 SURFACE3 = "#332f2f"      # flat buttons, hover
 LINE = "#3b2726"          # hairlines and borders: dark matte red
-FAINT = "#6e4542"         # quietest text
+FAINT = "#946360"         # quiet text (3.2:1 on BG): small print, disabled
 RING_TRACK = "#3a3a3a"    # ring track stays grey so the red arc stands out
-DIM = "#9a6460"           # secondary text: dusty matte red
+DIM = "#b37c78"           # secondary text: dusty matte red (4.6:1 on BG)
 FG = "#e6e1e0"            # main text: matte off-white
 ACCENT = "#790100"        # the red
 ACCENT_HI = "#9a1d1b"     # hover
 ACCENT_DIM = "#3a1514"    # selected chip, selected list row
 ACCENT_FG = "#f0e4e2"     # text on red
+ACCENT_TEXT = "#d4706a"   # red text on BG (4.8:1), e.g. "locked"
 ACCENT_MUTED = "#6f7f96"  # darker blue for the OBLIVIONIS // label
 HER = "#a9b9d0"           # Oblivionis's own line stays blue
 TYPE_SPEED = 0.9          # typewriter: 10% faster per character
@@ -1534,10 +1535,10 @@ class Oracle:
         self.frame = tk.Frame(master, bg=BG)
         tk.Frame(self.frame, bg=LINE, height=1).pack(fill="x")
         tk.Label(self.frame, text="OBLIVIONIS  //", bg=BG, fg=ACCENT_MUTED,
-                 font=(MONO, 8, "bold"), anchor="w").pack(fill="x", padx=S(26), pady=(S(14), S(4)))
+                 font=(MONO, 8, "bold"), anchor="w").pack(fill="x", padx=S(24), pady=(S(16), S(4)))
         self.label = tk.Label(self.frame, text="", bg=BG, fg=HER, font=(MONO, 10),
                               anchor="nw", justify="left", wraplength=S(400), height=3)
-        self.label.pack(fill="x", padx=S(26), pady=(0, S(14)))
+        self.label.pack(fill="x", padx=S(24), pady=(0, S(16)))
         self.label.bind("<Button-1>", lambda e: self.on_click and self.on_click())
         self.job = None
         self.full = ""
@@ -1724,7 +1725,7 @@ class App:
     # ----------------------------------------------------------------- header
     def _build_header(self):
         h = tk.Frame(self.root, bg=BG)
-        h.pack(fill="x", padx=S(26), pady=(S(18), 0))
+        h.pack(fill="x", padx=S(24), pady=(S(16), 0))
         Wordmark(h, 13).pack(side="left")
         self.hdr_right = tk.Label(h, text="settings", bg=BG, fg=DIM, font=(MONO, 9), cursor="hand2")
         self.hdr_right.pack(side="right")
@@ -1751,7 +1752,7 @@ class App:
         {"home": self.home, "run": self.run, "settings": self.settings}[name].pack(
             fill="both", expand=True)
         if self.session.active:
-            self.hdr_right.config(text="● locked", fg=ACCENT_HI, cursor="arrow")
+            self.hdr_right.config(text="● locked", fg=ACCENT_TEXT, cursor="arrow")
         else:
             self.hdr_right.config(text="done" if name == "settings" else "settings",
                                   fg=DIM, cursor="hand2")
@@ -1766,7 +1767,7 @@ class App:
     def _build_home(self):
         f = self.home = tk.Frame(self.body, bg=BG)
         self.home_ring = Ring(f)
-        self.home_ring.pack(pady=(S(22), S(4)))
+        self.home_ring.pack(pady=(S(24), S(4)))
         self.home_meta = tk.Label(f, text="", bg=BG, fg=DIM, font=(MONO, 9))
         self.home_meta.pack()
 
@@ -1775,10 +1776,10 @@ class App:
         for i, d in enumerate((-5, -1, 1, 5)):
             Pill(adj, ("−%d" if d < 0 else "+%d") % abs(d), lambda d=d: self._bump(d),
                  w=50, h=32, kind="mono", size=10).pack(
-                side="left", padx=(S(22) if i == 2 else S(3), S(3)))
+                side="left", padx=(S(24) if i == 2 else S(4), S(4)))
 
         self.chips = tk.Frame(f, bg=BG)
-        self.chips.pack(pady=(S(18), S(20)))
+        self.chips.pack(pady=(S(16), S(24)))
 
         self.start_btn = Pill(f, "put the mask on?", self._start, w=300, h=50, kind="accent", size=12)
         self.start_btn.pack()
@@ -1870,11 +1871,11 @@ class App:
     def _build_run(self):
         f = self.run = tk.Frame(self.body, bg=BG)
         self.run_ring = Ring(f, size=280)
-        self.run_ring.pack(pady=(S(26), S(6)))
+        self.run_ring.pack(pady=(S(24), S(8)))
         self.run_end = tk.Label(f, text="", bg=BG, fg=DIM, font=(MONO, 9))
         self.run_end.pack()
         self.break_btn = Pill(f, "", self._break_click, w=240, h=40, size=10)
-        self.break_btn.pack(pady=(S(22), 0))
+        self.break_btn.pack(pady=(S(24), 0))
         self.break_armed = False
         self.break_arm_job = None
         tk.Label(f, text="there is no stop button.", bg=BG, fg=FAINT,
@@ -2030,31 +2031,31 @@ class App:
     def _build_settings(self):
         f = self.settings = tk.Frame(self.body, bg=BG)
         tabs = tk.Frame(f, bg=BG)
-        tabs.pack(fill="x", padx=S(26), pady=(S(22), 0))
+        tabs.pack(fill="x", padx=S(24), pady=(S(24), 0))
         self.tab_btns = {}
         for name in ("Programs", "Websites", "Presets", "About"):
             col = tk.Frame(tabs, bg=BG)
-            col.pack(side="left", padx=(0, S(18)))
+            col.pack(side="left", padx=(0, S(16)))
             b = tk.Label(col, text=name.lower(), bg=BG, fg=DIM, font=(MONO, 10), cursor="hand2")
-            b.pack(pady=(0, S(7)))
+            b.pack(pady=(0, S(8)))
             bar = tk.Frame(col, bg=BG, height=S(2))
             bar.pack(fill="x")
             b.bind("<Button-1>", lambda e, n=name: self._tab(n))
             b.bind("<Enter>", lambda e, n=name: n != self.tab_name and self.tab_btns[n][0].config(fg=FG))
             b.bind("<Leave>", lambda e, n=name: n != self.tab_name and self.tab_btns[n][0].config(fg=DIM))
             self.tab_btns[name] = (b, bar)
-        tk.Frame(f, bg=LINE, height=1).pack(fill="x", padx=S(26))
+        tk.Frame(f, bg=LINE, height=1).pack(fill="x", padx=S(24))
         self.tab_body = tk.Frame(f, bg=BG)
-        self.tab_body.pack(fill="both", expand=True, padx=S(26), pady=(S(14), 0))
+        self.tab_body.pack(fill="both", expand=True, padx=S(24), pady=(S(16), 0))
         self.admin_lbl = tk.Label(f, text="", bg=BG, font=(MONO, 8), anchor="w")
-        self.admin_lbl.pack(fill="x", padx=S(26), pady=(0, S(10)))
+        self.admin_lbl.pack(fill="x", padx=S(24), pady=(0, S(12)))
         self.tab_name = "Programs"
 
     def _refresh_settings(self):
         if is_admin():
             self.admin_lbl.config(text="● administrator  ·  full blocking", fg=DIM)
         else:
-            self.admin_lbl.config(text="○ not administrator  ·  programs closed, sites not blocked", fg=FAINT)
+            self.admin_lbl.config(text="○ not administrator  ·  programs closed, sites not blocked", fg=DIM)
         self._tab(self.tab_name)
 
     def _listbox(self, parent, h=8, multi=False):
@@ -2073,8 +2074,8 @@ class App:
         return e
 
     def _note(self, parent, text):
-        tk.Label(parent, text=text, bg=BG, fg=FAINT, font=(UI, 9), anchor="w",
-                 justify="left", wraplength=S(400)).pack(fill="x", pady=(S(10), 0))
+        tk.Label(parent, text=text, bg=BG, fg=DIM, font=(UI, 9), anchor="w",
+                 justify="left", wraplength=S(400)).pack(fill="x", pady=(S(12), 0))
 
     def _tab(self, name):
         self.tab_name = name
@@ -2121,7 +2122,7 @@ class App:
         manual = tk.Frame(p, bg=BG)
         manual.pack(fill="x", pady=(S(12), 0))
         e = self._entry(manual)
-        e.pack(side="left", fill="x", expand=True, ipady=S(6))
+        e.pack(side="left", fill="x", expand=True, ipady=S(8))
         e.bind("<Return>", add_manual)
         Pill(manual, "Add", add_manual, w=70, h=34).pack(side="left", padx=(S(8), 0))
 
@@ -2136,9 +2137,9 @@ class App:
 
     def _tab_websites(self, p):
         row = tk.Frame(p, bg=BG)
-        row.pack(fill="x", pady=(0, S(10)))
+        row.pack(fill="x", pady=(0, S(12)))
         e = self._entry(row)
-        e.pack(side="left", fill="x", expand=True, ipady=S(6))
+        e.pack(side="left", fill="x", expand=True, ipady=S(8))
         lb = self._listbox(p)
 
         def add(*_):
@@ -2178,7 +2179,7 @@ class App:
         fields = {}
         for key, label, hint in PRESET_FIELDS:
             top = tk.Frame(form, bg=BG)
-            top.pack(fill="x", pady=(S(6), S(3)))
+            top.pack(fill="x", pady=(S(8), S(4)))
             tk.Label(top, text=label, bg=BG, fg=DIM, font=(UI, 9), anchor="w").pack(side="left")
             if hint:
                 tk.Label(top, text=hint, bg=BG, fg=FAINT, font=(UI, 8), anchor="e").pack(side="right")
@@ -2274,9 +2275,9 @@ class App:
         win.transient(self.root)
         dark_titlebar(win)
         tk.Label(win, text="Select programs to block", bg=BG, fg=FG,
-                 font=(UI, 11, "bold")).pack(anchor="w", padx=S(18), pady=(S(16), S(10)))
+                 font=(UI, 11, "bold")).pack(anchor="w", padx=S(16), pady=(S(16), S(12)))
         lb = self._listbox(win, multi=True)
-        lb.pack(fill="both", expand=True, padx=S(18))
+        lb.pack(fill="both", expand=True, padx=S(16))
         for n in names:
             lb.insert("end", "  " + n)
 
@@ -2287,19 +2288,19 @@ class App:
                 picks.append(image_path(found[n]) or n)
             self._add_programs(picks)
             win.destroy()
-        Pill(win, "Add selected", add, w=160, h=40, kind="accent").pack(pady=S(14))
+        Pill(win, "Add selected", add, w=160, h=40, kind="accent").pack(pady=S(16))
 
     def _tab_about(self, p):
         Wordmark(p, 26, blink=False).pack(anchor="w", pady=(S(4), S(4)))
         tk.Label(p, text="version %s" % VERSION, bg=BG, fg=DIM, font=(MONO, 9)).pack(anchor="w")
         row = tk.Frame(p, bg=BG)
-        row.pack(fill="x", pady=(S(18), 0))
+        row.pack(fill="x", pady=(S(16), 0))
         Pill(row, "Check for updates", self._check_updates, w=170, h=38, kind="accent").pack(side="left")
         self.auto_btn = Pill(row, "", self._toggle_auto, w=150, h=38)
         self.auto_btn.pack(side="left", padx=S(8))
         self.about_lbl = tk.Label(p, text="", bg=BG, fg=DIM, font=(MONO, 9), anchor="w",
                                   justify="left", wraplength=S(400))
-        self.about_lbl.pack(fill="x", pady=(S(14), 0))
+        self.about_lbl.pack(fill="x", pady=(S(16), 0))
         self._note(p, "Updates come from this app's GitHub Releases. They are only ever "
                       "installed between sessions, never during one.")
         self._about_status()
