@@ -17,6 +17,25 @@ then **right-click > Run as administrator**.
 
 Without admin, Ave still closes blocked programs, but it can't block websites or stop games from launching.
 
+## Escape routes, sealed
+
+| You try... | Ave does |
+|---|---|
+| Close the window / Alt+F4 | Refuses |
+| End task in Task Manager | Comes back within ~1 minute. The timer keeps counting. |
+| Delete `AveGuard` in Task Scheduler | Task Scheduler gets closed during focus, and `AveGuard` is recreated every ~90 s |
+| Suspend Ave (Resource Monitor etc.) | Its heartbeat stops, and the guard replaces it within ~3 minutes |
+| Edit hosts / registry blocks by hand | Regedit gets closed during focus; blocks are put back every 30 s |
+| Rename or copy the game's .exe | The whole game folder is blocked, not just the name |
+| Change the PC clock | Does nothing. The timer runs on Windows uptime. After a reboot it uses online time, or only counts uptime if offline. |
+| Edit or delete Ave's save file | It's signed and stored twice. An edited copy gets ignored. |
+| m.youtube.com, youtu.be, x.com... | Common alternate addresses are blocked too |
+
+**Still open (on purpose or because it can't be closed):** Task Manager (you asked for it),
+PowerShell/Command Prompt (blocking them breaks Windows), other devices,
+a second Windows account, Safe Mode, and browser games on sites you didn't list.
+Anti-cheat games may object to the registry launch block.
+
 ## If something stays blocked
 
 That shouldn't happen. Ave removes every block when a session ends. If it ever does,

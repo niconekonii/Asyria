@@ -3,34 +3,39 @@
 Ave - a no-killswitch focus timer for Windows, watched over by Oblivionis.
 
 One file, Python standard library only.
-  * Timer opens first: pick a preset or adjust minutes, press Start.
-  * Presets = focus minutes / break minutes / rounds. Breaks lift blocks,
-    the next round puts them back.
-  * During focus, chosen .exe files are force-closed (ctypes snapshot every
-    2 s, no subprocess) and - with admin - refused at launch (IFEO) and
-    chosen websites are blocked (hosts file).
-  * No stop button, close is refused, settings locked, survives reboot,
-    relaunches itself if killed (scheduled task).
-  * Fail-safe: anything that fails falls back to plain process killing,
-    and every block is removed when the session ends. If removal needs
-    admin and we don't have it, Ave asks Windows for it ("--cleanup").
+  * Timer opens first: pick a preset or adjust minutes, press Start (twice).
+  * Presets = focus / break / rounds. Breaks lift blocks, focus relocks.
+  * During focus: blocked programs (by name AND by their game folder) are
+    force-closed every 2 s via a ctypes snapshot; with admin they are also
+    refused at launch (IFEO) and blocked websites go to the hosts file.
+  * Escape routes sealed during focus: Task Scheduler (mmc), schtasks,
+    regedit. Hosts/IFEO/guard task are re-applied every 30 s if removed.
+  * Session clock uses the Windows uptime counter (immune to clock changes);
+    after a reboot it uses online time, or - offline - counts only uptime.
+  * State is signed and stored twice (file + registry); a suspended or hung
+    Ave is detected by its heartbeat and replaced by the guard task.
+  * Fail-safe: every block is removed when the session ends. If removal
+    needs admin and we lack it, Windows is asked (UAC) via "--cleanup".
 
-Emergency unblock (only if something was ever left blocked):
-    Ave.exe --cleanup        (or: python ave.py --cleanup)
+Emergency unblock:  Ave.exe --cleanup   (run as administrator)
 """
 
 import os
 import sys
 import json
 import time
+import hmac
 import random
 import ctypes
+import hashlib
+import threading
 import subprocess
 
 APP = "Ave"
 IS_WIN = os.name == "nt"
 FROZEN = getattr(sys, "frozen", False)
 SELF = sys.executable if FROZEN else os.path.abspath(__file__)
+SELF_DIR = os.path.dirname(SELF).lower().rstrip("\\") + "\\"
 
 DATA = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.dirname(SELF), APP)
 try:
@@ -39,6 +44,7 @@ except Exception:
     DATA = os.path.dirname(SELF)
 STATE_FILE = os.path.join(DATA, "state.json")
 CONFIG_FILE = os.path.join(DATA, "config.json")
+REG_APP = r"Software\Ave"
 
 HOSTS = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"),
                      "System32", "drivers", "etc", "hosts")
@@ -48,11 +54,29 @@ IFEO_DEBUGGER = "systray.exe"   # harmless Windows stub: blocked exe just never 
 TASK = "AveGuard"
 NOWIN = 0x08000000              # CREATE_NO_WINDOW for helper commands
 
-# Never killable, whatever the list says (Task Manager stays free on purpose).
+# Never killable, whatever the lists say (Task Manager stays free on purpose).
 PROTECTED = {
     "explorer.exe", "taskmgr.exe", "csrss.exe", "winlogon.exe", "wininit.exe",
     "services.exe", "lsass.exe", "smss.exe", "svchost.exe", "dwm.exe",
-    "system", "registry", "ave.exe", "python.exe", "pythonw.exe",
+    "system", "registry", "conhost.exe", "sihost.exe", "ctfmon.exe",
+    "fontdrvhost.exe", "runtimebroker.exe", "searchhost.exe", "consent.exe",
+    "startmenuexperiencehost.exe", "shellexperiencehost.exe", "textinputhost.exe",
+    "ave.exe", "python.exe", "pythonw.exe",
+}
+# Escape tools closed during focus. Not cmd/PowerShell: that would break too much.
+SEAL = {"mmc.exe": "Task Scheduler", "schtasks.exe": "the scheduler",
+        "regedit.exe": "the registry"}
+
+# Extra domains so "youtube.com" also covers youtu.be, m.youtube.com, etc.
+ALIASES = {
+    "youtube.com": ["youtu.be", "music.youtube.com", "youtube-nocookie.com"],
+    "reddit.com": ["old.reddit.com", "new.reddit.com", "redd.it"],
+    "twitter.com": ["x.com", "mobile.twitter.com", "mobile.x.com"],
+    "x.com": ["twitter.com", "mobile.twitter.com", "mobile.x.com"],
+    "twitch.tv": ["clips.twitch.tv", "player.twitch.tv"],
+    "facebook.com": ["fb.com", "web.facebook.com"],
+    "discord.com": ["discordapp.com", "discord.gg"],
+    "tiktok.com": ["vm.tiktok.com"],
 }
 
 # ---- palette: pure black, greys, one accent (Oblivionis stage-blue) -------
@@ -94,6 +118,16 @@ CAUGHT = [
     "{n} has no role in this act.",
     "Again? Your resolve is thinner than paper. {n}, gone.",
     "I took {n} from you. You may thank me later.",
+]
+SEALED = [
+    "{n}? You were looking for the exit. There is none.",
+    "Reaching for the wires behind the stage? {n}, closed. How vulgar.",
+    "Did you think I would leave the back door open? Not {n}.",
+]
+RETURNED = [
+    "Did you think ending me would end this? I have returned.",
+    "You closed the curtain. I opened it again.",
+    "I always come back. Remember that.",
 ]
 BREAK = [
     "Intermission. Breathe. I will call you back.",
@@ -151,6 +185,13 @@ def beep(freq=880, ms=120):
             pass
 
 
+def ticks():
+    """Milliseconds since boot. Changing the PC clock does not affect it."""
+    if IS_WIN:
+        return int(_k32.GetTickCount64())
+    return int(time.monotonic() * 1000)
+
+
 def launch_parts():
     """(exe, args) to start this app again, without a console window."""
     if FROZEN:
@@ -175,15 +216,83 @@ def run_elevated(args):
 
 def online_time():
     """Trusted wall time from an HTTP Date header, or None if offline."""
+    import urllib.request
+    import email.utils
+    for url in ("https://www.google.com/generate_204", "https://www.microsoft.com",
+                "https://www.cloudflare.com"):
+        try:
+            req = urllib.request.Request(url, method="HEAD")
+            with urllib.request.urlopen(req, timeout=3) as r:
+                d = r.headers.get("Date")
+            if d:
+                return email.utils.mktime_tz(email.utils.parsedate_tz(d))
+        except Exception:
+            continue
+    return None
+
+
+# =============================================================================
+# Signed state, stored twice (file + HKCU registry)
+# =============================================================================
+
+def _key():
+    return hashlib.sha256(("ave//oblivionis//%s//%s" % (
+        os.environ.get("COMPUTERNAME", ""), os.environ.get("USERNAME", ""))).encode()).digest()
+
+
+def _pack(d):
+    blob = json.dumps(d, sort_keys=True)
+    return json.dumps({"d": blob, "s": hmac.new(_key(), blob.encode(), hashlib.sha256).hexdigest()})
+
+
+def _unpack(text):
     try:
-        import urllib.request
-        import email.utils
-        req = urllib.request.Request("https://www.google.com/generate_204", method="HEAD")
-        with urllib.request.urlopen(req, timeout=3) as r:
-            d = r.headers.get("Date")
-        return email.utils.mktime_tz(email.utils.parsedate_tz(d)) if d else None
+        o = json.loads(text)
+        good = hmac.new(_key(), o["d"].encode(), hashlib.sha256).hexdigest()
+        if hmac.compare_digest(good, o["s"]):
+            return json.loads(o["d"])
     except Exception:
-        return None
+        pass
+    return None
+
+
+def state_save(d):
+    payload = _pack(d)
+    try:
+        tmp = STATE_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(payload)
+        os.replace(tmp, STATE_FILE)
+    except Exception:
+        pass
+    if IS_WIN:
+        try:
+            import winreg
+            k = winreg.CreateKey(winreg.HKEY_CURRENT_USER, REG_APP)
+            winreg.SetValueEx(k, "state", 0, winreg.REG_SZ, payload)
+            winreg.CloseKey(k)
+        except Exception:
+            pass
+
+
+def state_load():
+    """Newest copy whose signature is valid. Tampered copies are ignored."""
+    found = []
+    try:
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            found.append(_unpack(f.read()))
+    except Exception:
+        pass
+    if IS_WIN:
+        try:
+            import winreg
+            k = winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_APP)
+            found.append(_unpack(winreg.QueryValueEx(k, "state")[0]))
+            winreg.CloseKey(k)
+        except Exception:
+            pass
+    found = [f for f in found if isinstance(f, dict)]
+    return max(found, key=lambda f: f.get("seq", 0)) if found else {}
 
 
 # =============================================================================
@@ -201,6 +310,7 @@ if IS_WIN:
                     ("dwFlags", wt.DWORD), ("szExeFile", ctypes.c_wchar * 260)]
 
     _k32 = ctypes.windll.kernel32
+    _k32.GetTickCount64.restype = ctypes.c_ulonglong
     _k32.CreateToolhelp32Snapshot.restype = wt.HANDLE
     _k32.CreateToolhelp32Snapshot.argtypes = [wt.DWORD, wt.DWORD]
     _k32.Process32FirstW.argtypes = [wt.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
@@ -209,11 +319,13 @@ if IS_WIN:
     _k32.OpenProcess.argtypes = [wt.DWORD, wt.BOOL, wt.DWORD]
     _k32.TerminateProcess.argtypes = [wt.HANDLE, wt.UINT]
     _k32.CloseHandle.argtypes = [wt.HANDLE]
+    _k32.QueryFullProcessImageNameW.argtypes = [wt.HANDLE, wt.DWORD, wt.LPWSTR,
+                                                ctypes.POINTER(wt.DWORD)]
     _INVALID = wt.HANDLE(-1).value
 
 
 def processes():
-    """[(pid, 'name.exe')] for every running process."""
+    """[(pid, 'name.exe', parent_pid)] for every running process."""
     out = []
     if not IS_WIN:
         return out
@@ -225,11 +337,28 @@ def processes():
         e.dwSize = ctypes.sizeof(e)
         ok = _k32.Process32FirstW(snap, ctypes.byref(e))
         while ok:
-            out.append((e.th32ProcessID, e.szExeFile.lower()))
+            out.append((e.th32ProcessID, e.szExeFile.lower(), e.th32ParentProcessID))
             ok = _k32.Process32NextW(snap, ctypes.byref(e))
     finally:
         _k32.CloseHandle(snap)
     return out
+
+
+def image_path(pid):
+    """Full lowercase path of a process's exe, or '' if hidden from us."""
+    if not IS_WIN:
+        return ""
+    h = _k32.OpenProcess(0x1000, False, pid)   # PROCESS_QUERY_LIMITED_INFORMATION
+    if not h:
+        return ""
+    try:
+        buf = ctypes.create_unicode_buffer(1024)
+        n = wt.DWORD(1024)
+        if _k32.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(n)):
+            return buf.value.lower()
+        return ""
+    finally:
+        _k32.CloseHandle(h)
 
 
 def kill(pid):
@@ -241,6 +370,36 @@ def kill(pid):
         _k32.CloseHandle(h)
 
 
+def _norm_dir(d):
+    return os.path.normpath(d).lower().rstrip("\\") + "\\"
+
+
+def blockable_dir(d):
+    """A game's own folder - never a shared/system folder or Ave's own folder."""
+    d = _norm_dir(d)
+    if len(d) <= 4 or SELF_DIR.startswith(d):
+        return False
+    env = os.environ.get
+    sysroot = _norm_dir(env("SystemRoot", r"C:\Windows"))
+    if d.startswith(sysroot):
+        return False
+    home = _norm_dir(os.path.expanduser("~"))
+    shared = {home, sysroot}
+    for v in ("ProgramFiles", "ProgramFiles(x86)", "ProgramW6432", "ProgramData",
+              "APPDATA", "LOCALAPPDATA", "TEMP", "PUBLIC"):
+        if env(v):
+            shared.add(_norm_dir(env(v)))
+    for v in ("ProgramFiles", "ProgramW6432"):
+        if env(v):
+            shared.add(_norm_dir(os.path.join(env(v), "WindowsApps")))
+    if env("LOCALAPPDATA"):
+        shared.add(_norm_dir(os.path.join(env("LOCALAPPDATA"), "Programs")))
+    if d in shared:
+        return False
+    parent = _norm_dir(os.path.dirname(d.rstrip("\\")))
+    return parent != _norm_dir(os.path.dirname(home.rstrip("\\"))) and parent != home
+
+
 # =============================================================================
 # Blockers - every one returns True/False and never raises
 # =============================================================================
@@ -250,7 +409,7 @@ def _clean_domain(d):
     for p in ("https://", "http://"):
         if d.startswith(p):
             d = d[len(p):]
-    d = d.split("/")[0]
+    d = d.split("/")[0].split(":")[0]
     return d[4:] if d.startswith("www.") else d
 
 
@@ -274,17 +433,32 @@ def _flush_dns():
         pass
 
 
+def hosts_has_block():
+    try:
+        with open(HOSTS, "r", encoding="utf-8", errors="ignore") as f:
+            return MARK_A in f.read()
+    except Exception:
+        return False
+
+
 def hosts_block(sites):
     if not (IS_WIN and sites):
         return False
+    names = []
+    for s in sites:
+        d = _clean_domain(s)
+        if not d:
+            continue
+        for x in [d] + ALIASES.get(d, []):
+            for n in (x, "www." + x, "m." + x):
+                if n not in names:
+                    names.append(n)
     try:
         with open(HOSTS, "r", encoding="utf-8", errors="ignore") as f:
             text = _strip_hosts(f.read())
         lines = [MARK_A]
-        for s in sites:
-            d = _clean_domain(s)
-            if d:
-                lines += ["0.0.0.0 " + d, "0.0.0.0 www." + d]
+        for n in names:
+            lines += ["0.0.0.0 " + n, ":: " + n]
         lines.append(MARK_B)
         with open(HOSTS, "w", encoding="utf-8") as f:
             f.write(text + "\n".join(lines) + "\n")
@@ -357,12 +531,22 @@ def guard_install():
     if not IS_WIN:
         return False
     exe, base = launch_parts()
-    tr = ('"%s" %s --guard' % (exe, base)).strip()
+    tr = ('"%s" %s --guard' % (exe, base)).replace("  ", " ")
     cmd = ["schtasks", "/Create", "/TN", TASK, "/TR", tr, "/SC", "MINUTE", "/MO", "1", "/F"]
     if is_admin():
         cmd += ["/RL", "HIGHEST"]
     try:
         return subprocess.run(cmd, capture_output=True, creationflags=NOWIN).returncode == 0
+    except Exception:
+        return False
+
+
+def guard_exists():
+    if not IS_WIN:
+        return False
+    try:
+        return subprocess.run(["schtasks", "/Query", "/TN", TASK], capture_output=True,
+                              creationflags=NOWIN).returncode == 0
     except Exception:
         return False
 
@@ -377,7 +561,7 @@ def guard_remove():
 
 
 def autostart(on):
-    """Login autostart (HKCU Run) - only used when the guard task failed."""
+    """Backup relaunch at login (HKCU Run) while a session runs."""
     if not IS_WIN:
         return
     try:
@@ -387,7 +571,8 @@ def autostart(on):
                            0, winreg.KEY_SET_VALUE)
         if on:
             exe, base = launch_parts()
-            winreg.SetValueEx(k, APP, 0, winreg.REG_SZ, ('"%s" %s' % (exe, base)).strip())
+            winreg.SetValueEx(k, APP, 0, winreg.REG_SZ,
+                              ('"%s" %s --guard' % (exe, base)).replace("  ", " "))
         else:
             try:
                 winreg.DeleteValue(k, APP)
@@ -414,27 +599,28 @@ class Session:
         self.active = False
         self.phases = []          # [["focus"|"break", seconds], ...]
         self.idx = 0
-        self.phase_end = 0.0      # trusted wall-clock seconds
-        self.exes, self.sites = [], []
-        self.guard = False
+        self.end_tick = 0         # uptime ms when the current phase ends
+        self.exes, self.dirs, self.sites = [], [], []
+        self.admin = False
         self.pending_cleanup = False
-        self._sync()
+        self.seq = 0
+        self.online_ref = None    # (online unix time, uptime ms when fetched)
+        self.paths = {}           # pid -> exe path cache
+        self.heals = 0
 
-    # Trusted clock: online time (if any) + monotonic, so changing the PC clock
-    # mid-session does nothing.
-    def _sync(self):
-        self.anchor = online_time() or time.time()
-        self.mono = time.monotonic()
-
-    def now(self):
-        return self.anchor + (time.monotonic() - self.mono)
+    def fetch_online_async(self):
+        def run():
+            t = online_time()
+            if t:
+                self.online_ref = (t, ticks())
+        threading.Thread(target=run, daemon=True).start()
 
     @property
     def kind(self):
         return self.phases[self.idx][0] if self.active else None
 
     def remaining(self):
-        return max(0, int(round(self.phase_end - self.now())))
+        return max(0, (self.end_tick - ticks() + 999) // 1000)
 
     def phase_len(self):
         return self.phases[self.idx][1] if self.active else 1
@@ -447,34 +633,61 @@ class Session:
     def total_left(self):
         return self.remaining() + sum(s for _, s in self.phases[self.idx + 1:])
 
+    # -- persistence ---------------------------------------------------------
     def save(self):
-        save_json(STATE_FILE, {
+        now = ticks()
+        self.seq += 1
+        ref = self.online_ref
+        state_save({
             "active": self.active, "phases": self.phases, "idx": self.idx,
-            "phase_end": self.phase_end, "exes": self.exes, "sites": self.sites,
-            "guard": self.guard, "pending_cleanup": self.pending_cleanup})
+            "left_ms": self.end_tick - now, "saved_tick": now,
+            "boot_wall": time.time() - now / 1000.0,
+            "saved_online": (ref[0] + (now - ref[1]) / 1000.0) if ref else None,
+            "exes": self.exes, "dirs": self.dirs, "sites": self.sites,
+            "admin": self.admin, "pending_cleanup": self.pending_cleanup,
+            "pid": os.getpid(), "seq": self.seq})
 
     def restore(self, st):
         self.active = bool(st.get("active"))
         self.phases = st.get("phases") or []
         self.idx = int(st.get("idx", 0))
-        self.phase_end = float(st.get("phase_end", 0))
         self.exes = st.get("exes", [])
+        self.dirs = st.get("dirs", [])
         self.sites = st.get("sites", [])
-        self.guard = st.get("guard", False)
+        self.admin = st.get("admin", False)
         self.pending_cleanup = st.get("pending_cleanup", False)
+        self.seq = st.get("seq", 0)
         if not self.phases or self.idx >= len(self.phases):
             self.active = False
+        if not self.active:
+            return
+        now = ticks()
+        saved = st.get("saved_tick", 0)
+        same_boot = now >= saved and abs((time.time() - now / 1000.0) - st.get("boot_wall", 0)) < 300
+        if same_boot:
+            elapsed = now - saved                       # exact, clock-proof
+        else:
+            on, so = online_time(), st.get("saved_online")
+            if on:
+                self.online_ref = (on, ticks())
+            if on and so:
+                elapsed = max(0, int((on - so) * 1000))  # real time since last save
+            else:
+                elapsed = now                           # offline: only count this boot
+        self.end_tick = now + int(st.get("left_ms", 0)) - elapsed
 
-    def start(self, phases, exes, sites):
-        self._sync()
+    # -- lifecycle -----------------------------------------------------------
+    def start(self, phases, exes, dirs, sites):
         self.phases, self.idx = phases, 0
         self.exes = sorted({os.path.basename(e).lower() for e in exes} - PROTECTED)
+        self.dirs = [d for d in dirs if blockable_dir(d)]
         self.sites = list(sites)
-        self.phase_end = self.now() + phases[0][1]
+        self.admin = is_admin()
+        self.pending_cleanup = False
+        self.end_tick = ticks() + phases[0][1] * 1000
         self.active = True
-        self.guard = guard_install()
-        if not self.guard:
-            autostart(True)
+        guard_install()
+        autostart(True)
         self.apply()
         self.save()
 
@@ -488,13 +701,13 @@ class Session:
     def tick(self):
         """Advance through any phases whose time is up. Returns events."""
         events = []
-        while self.active and self.now() >= self.phase_end:
+        while self.active and ticks() >= self.end_tick:
             self.idx += 1
             if self.idx >= len(self.phases):
                 self.finish()
                 events.append("done")
                 break
-            self.phase_end += self.phases[self.idx][1]
+            self.end_tick += self.phases[self.idx][1] * 1000
             if self.kind == "focus":
                 self.apply()
             else:
@@ -503,23 +716,53 @@ class Session:
             self.save()
         return events
 
+    def heal(self):
+        """Every 30 s: heartbeat + put back anything that was removed."""
+        if not self.active:
+            return
+        self.heals += 1
+        if self.kind == "focus":
+            if self.sites and not hosts_has_block():
+                hosts_block(self.sites)
+            ifeo_block(self.exes)
+        if self.heals % 3 == 1:          # about every 90 s
+            guard_install()
+        autostart(True)
+        self.save()
+
     def enforce(self):
-        """Kill blocked programs. Returns names that were killed."""
-        if self.kind != "focus" or not self.exes:
-            return []
-        targets, me, hit = set(self.exes), os.getpid(), []
-        for pid, name in processes():
-            if name in targets and pid != me:
+        """Close blocked programs + escape tools. Returns (games, tools) hit."""
+        if self.kind != "focus":
+            return [], []
+        targets, me = set(self.exes), os.getpid()
+        games, tools, live = [], [], set()
+        for pid, name, ppid in processes():
+            live.add(pid)
+            if pid == me or ppid == me or name in PROTECTED:
+                continue
+            if name in SEAL:
                 kill(pid)
-                hit.append(name)
-        return hit
+                tools.append(SEAL[name])
+                continue
+            hit = name in targets
+            if not hit and self.dirs:
+                path = self.paths.get(pid)
+                if path is None:
+                    path = self.paths[pid] = image_path(pid)
+                hit = bool(path) and any(path.startswith(d) for d in self.dirs)
+            if hit:
+                kill(pid)
+                games.append(name)
+        for pid in list(self.paths):
+            if pid not in live:
+                del self.paths[pid]
+        return games, tools
 
     def finish(self):
         self.active = False
         clean = self.lift()
         guard_remove()
         autostart(False)
-        self.guard = False
         if not clean and not run_elevated("--cleanup"):
             self.pending_cleanup = True    # retried on every launch until clean
         self.save()
@@ -527,14 +770,14 @@ class Session:
 
 def cleanup_everything():
     """--cleanup: lift every block Ave could have set, then exit."""
-    cfg = load_json(CONFIG_FILE, {})
-    st = load_json(STATE_FILE, {})
+    cfg = load_json(CONFIG_FILE, {}) or {}
+    st = state_load()
     exes = set(cfg.get("exes", [])) | set(st.get("exes", []))
     ok = lift_all(sorted(exes))
     guard_remove()
     autostart(False)
-    st.update(active=False, guard=False, pending_cleanup=not ok)
-    save_json(STATE_FILE, st)
+    st.update(active=False, pending_cleanup=not ok, seq=st.get("seq", 0) + 1)
+    state_save(st)
 
 
 # =============================================================================
@@ -721,7 +964,7 @@ class Oracle:
 
 
 DEFAULT_CFG = {
-    "exes": [], "sites": [], "sel": 0,
+    "exes": [], "dirs": [], "sites": [], "sel": 0,
     "presets": [
         {"name": "Deep", "focus": 50, "brk": 10, "rounds": 2},
         {"name": "Pomodoro", "focus": 25, "brk": 5, "rounds": 4},
@@ -731,17 +974,19 @@ DEFAULT_CFG = {
 
 
 class App:
-    def __init__(self, root):
+    def __init__(self, root, state):
         self.root = root
         self.cfg = load_json(CONFIG_FILE, None) or json.loads(json.dumps(DEFAULT_CFG))
         for k, v in DEFAULT_CFG.items():
-            self.cfg.setdefault(k, v)
+            self.cfg.setdefault(k, json.loads(json.dumps(v)))
         if not self.cfg["presets"]:
-            self.cfg["presets"] = list(DEFAULT_CFG["presets"])
+            self.cfg["presets"] = json.loads(json.dumps(DEFAULT_CFG["presets"]))
         self.cfg["sel"] = min(self.cfg.get("sel", 0), len(self.cfg["presets"]) - 1)
         self.session = Session()
+        self.session.fetch_online_async()
         self.arm_job = None
         self.armed = False
+        self.current = "home"
 
         root.title(APP)
         root.configure(bg=BG)
@@ -759,29 +1004,28 @@ class App:
         self._build_settings()
 
         root.protocol("WM_DELETE_WINDOW", self._on_close)
-        self._resume()
+        self._resume(state)
 
     # ---------------------------------------------------------------- startup
-    def _resume(self):
-        st = load_json(STATE_FILE, {}) or {}
-        self.session.restore(st)
-        if self.session.pending_cleanup:
+    def _resume(self, st):
+        s = self.session
+        s.restore(st)
+        if s.pending_cleanup:
             if is_admin():
                 cleanup_everything()
-                self.session.pending_cleanup = False
+                s.pending_cleanup = False
             else:
                 run_elevated("--cleanup")
-        if self.session.active:
-            ev = self.session.tick()          # catch up on time spent off/rebooted
-            if self.session.active:
-                if self.session.kind == "focus":
-                    self.session.apply()
-                if not self.session.guard:
-                    self.session.guard = guard_install()
-                self.session.save()
+        if s.active:
+            ev = s.tick()                       # catch up on time spent dead/rebooted
+            if s.active:
+                if s.kind == "focus":
+                    s.apply()
+                s.heal()
                 self.show("run")
-                self.oracle.say_from(FOCUS if self.session.kind == "focus" else BREAK)
-                self._loop()
+                self.oracle.pool = lambda: FOCUS if s.kind == "focus" else BREAK
+                self.oracle.say_from(RETURNED)
+                self._loops()
                 return
             if "done" in ev:
                 self.show("home")
@@ -789,11 +1033,15 @@ class App:
                 self.oracle.say_from(DONE)
                 return
         else:
-            # Fail-safe: nothing should be blocked when no session runs.
-            lift_all(self.cfg["exes"])
+            lift_all(self.cfg["exes"])          # fail-safe: no session = no blocks
         self.show("home")
         self.oracle.pool = lambda: IDLE
         self.oracle.say_from(IDLE)
+
+    def _loops(self):
+        self._loop()
+        self.root.after(300, self._poll)
+        self.root.after(30000, self._heal)
 
     # ----------------------------------------------------------------- header
     def _build_header(self):
@@ -902,7 +1150,7 @@ class App:
             self.arm_job = self.root.after(4000, self._disarm)
             return
         self._disarm()
-        if not is_admin() and (self.cfg["sites"] or self.cfg["exes"]):
+        if not is_admin() and (self.cfg["sites"] or self.cfg["exes"] or self.cfg["dirs"]):
             if messagebox.askyesno(
                     APP, "Ave isn't running as administrator.\n\n"
                          "Without it, websites can't be blocked and games are only "
@@ -918,14 +1166,13 @@ class App:
             phases.append(["focus", p["focus"] * 60])
             if p["brk"] and r < p["rounds"] - 1:
                 phases.append(["break", p["brk"] * 60])
-        self.session.start(phases, self.cfg["exes"], self.cfg["sites"])
+        self.session.start(phases, self.cfg["exes"], self.cfg["dirs"], self.cfg["sites"])
         beep(880, 90)
         beep(1320, 120)
         self.show("run")
         self.oracle.pool = lambda: FOCUS if self.session.kind == "focus" else BREAK
         self.oracle.say_from(FOCUS)
-        self._loop()
-        self.root.after(300, self._poll)
+        self._loops()
 
     # -------------------------------------------------------------------- run
     def _build_run(self):
@@ -965,12 +1212,20 @@ class App:
         """2 s enforcement tick (cheap ctypes snapshot)."""
         if not self.session.active:
             return
-        hit = self.session.enforce()
-        if hit:
+        games, tools = self.session.enforce()
+        if tools:
+            beep(250, 200)
+            self.oracle.say_from(SEALED, n=tools[0])
+        elif games:
             beep(330, 160)
-            name = os.path.splitext(hit[0])[0]
-            self.oracle.say_from(CAUGHT, n=name)
+            self.oracle.say_from(CAUGHT, n=os.path.splitext(games[0])[0])
         self.root.after(2000, self._poll)
+
+    def _heal(self):
+        if not self.session.active:
+            return
+        self.session.heal()
+        self.root.after(30000, self._heal)
 
     def _phase_changed(self, kind):
         self._raise()
@@ -1062,15 +1317,25 @@ class App:
     def _tab_programs(self, p):
         lb = self._listbox(p)
         lb.pack(fill="both", expand=True)
-        for e in self.cfg["exes"]:
-            lb.insert("end", "  " + e)
+        items = [("exes", e) for e in self.cfg["exes"]] + [("dirs", d) for d in self.cfg["dirs"]]
+        for kind, v in items:
+            lb.insert("end", ("  " + v) if kind == "exes" else ("  \u25b8 everything in " + v.rstrip("\\")))
+
+        def remove():
+            for i in reversed(lb.curselection()):
+                kind, v = items[i]
+                self.cfg[kind].remove(v)
+            self._save_cfg()
+            self._tab("Programs")
+
         row = tk.Frame(p, bg=BG)
         row.pack(fill="x", pady=(S(12), 0))
         Pill(row, "Browse\u2026", self._pick_file, w=110, h=36).pack(side="left")
         Pill(row, "Running\u2026", self._pick_running, w=110, h=36).pack(side="left", padx=S(8))
-        Pill(row, "Remove", lambda: self._remove("exes", lb), w=96, h=36).pack(side="left")
-        self._note(p, "Blocked programs close the moment they appear. Task Manager and "
-                      "Windows system processes can never be blocked.")
+        Pill(row, "Remove", remove, w=96, h=36).pack(side="left")
+        self._note(p, "Picking a game also blocks its whole folder, so renamed copies "
+                      "are caught too. Task Manager and Windows system processes can "
+                      "never be blocked.")
 
     def _tab_websites(self, p):
         row = tk.Frame(p, bg=BG)
@@ -1081,7 +1346,7 @@ class App:
 
         def add(*_):
             d = _clean_domain(e.get())
-            if d and d not in self.cfg["sites"]:
+            if d and "." in d and d not in self.cfg["sites"]:
                 self.cfg["sites"].append(d)
                 self._save_cfg()
                 lb.insert("end", "  " + d)
@@ -1091,9 +1356,16 @@ class App:
         lb.pack(fill="both", expand=True)
         for s in self.cfg["sites"]:
             lb.insert("end", "  " + s)
-        Pill(p, "Remove", lambda: self._remove("sites", lb), w=96, h=36).pack(anchor="w", pady=(S(12), 0))
-        self._note(p, "Type a site like youtube.com and press Enter. Needs administrator; "
-                      "restart your browser if a site still loads.")
+
+        def remove():
+            for i in reversed(lb.curselection()):
+                del self.cfg["sites"][i]
+                lb.delete(i)
+            self._save_cfg()
+        Pill(p, "Remove", remove, w=96, h=36).pack(anchor="w", pady=(S(12), 0))
+        self._note(p, "Type a site like youtube.com and press Enter (www., m. and "
+                      "short links are covered). Needs administrator. Restart your "
+                      "browser if a site still loads.")
 
     def _tab_presets(self, p):
         lb = self._listbox(p, h=5)
@@ -1160,17 +1432,17 @@ class App:
         Pill(row, "Delete", delete, w=96, h=36).pack(side="left")
         self._note(p, "Focus and break are minutes. The first four presets appear on the timer screen.")
 
-    def _remove(self, key, lb):
-        for i in reversed(lb.curselection()):
-            del self.cfg[key][i]
-            lb.delete(i)
-        self._save_cfg()
-
-    def _add_exes(self, names):
-        for n in names:
-            n = os.path.basename(n).lower()
+    def _add_programs(self, paths):
+        """paths: full exe paths (or bare names if the path is unknown)."""
+        for path in paths:
+            n = os.path.basename(path).lower()
             if n.endswith(".exe") and n not in PROTECTED and n not in self.cfg["exes"]:
                 self.cfg["exes"].append(n)
+            d = os.path.dirname(path)
+            if d and blockable_dir(d):
+                nd = _norm_dir(d)
+                if nd not in self.cfg["dirs"]:
+                    self.cfg["dirs"].append(nd)
         self._save_cfg()
         self._tab("Programs")
 
@@ -1178,10 +1450,14 @@ class App:
         p = filedialog.askopenfilename(title="Choose a program to block",
                                        filetypes=[("Programs", "*.exe")])
         if p:
-            self._add_exes([p])
+            self._add_programs([p])
 
     def _pick_running(self):
-        names = sorted({n for _, n in processes() if n.endswith(".exe")} - PROTECTED)
+        found = {}
+        for pid, n, _ in processes():
+            if n.endswith(".exe") and n not in PROTECTED and n not in SEAL and n not in found:
+                found[n] = pid
+        names = sorted(found)
         if not names:
             self.oracle.say("I see nothing running worth taking from you.")
             return
@@ -1198,7 +1474,11 @@ class App:
             lb.insert("end", "  " + n)
 
         def add():
-            self._add_exes([names[i] for i in lb.curselection()])
+            picks = []
+            for i in lb.curselection():
+                n = names[i]
+                picks.append(image_path(found[n]) or n)
+            self._add_programs(picks)
             win.destroy()
         Pill(win, "Add selected", add, w=160, h=40, kind="accent").pack(pady=S(14))
 
@@ -1207,7 +1487,7 @@ class App:
 
 
 # =============================================================================
-# Single instance
+# Single instance + guard takeover
 # =============================================================================
 
 _LOCK = None
@@ -1246,14 +1526,44 @@ def focus_existing():
         pass
 
 
+def take_over_if_frozen():
+    """Guard tick: if the running Ave stopped its heartbeat (suspended or hung)
+    for 2.5 minutes, end it and take its place."""
+    st = state_load()
+    if not st.get("active"):
+        return False
+    now, saved = ticks(), st.get("saved_tick", 0)
+    if now < saved or now - saved < 150000:
+        return False
+    pid = st.get("pid")
+    if not any(p == pid and n in ("ave.exe", "python.exe", "pythonw.exe")
+               for p, n, _ in processes()):
+        return False
+    kill(pid)
+    for _ in range(10):
+        time.sleep(0.5)
+        if acquire_lock():
+            return True
+    return False
+
+
 def main():
     if "--cleanup" in sys.argv:
         cleanup_everything()
         return
+    guard = "--guard" in sys.argv
     if not acquire_lock():
-        if "--guard" not in sys.argv:   # guard ticks stay silent
+        if not guard:
             focus_existing()
+            return
+        if not take_over_if_frozen():
+            return
+    st = state_load()
+    if guard and not st.get("active"):
+        cleanup_everything()        # leftover guard with no session: tidy up, stay closed
         return
+    if guard and st.get("admin") and not is_admin() and guard_exists():
+        return                      # login copy without admin: the elevated guard takes over
     if IS_WIN:
         try:
             ctypes.windll.shcore.SetProcessDpiAwareness(1)
@@ -1261,7 +1571,7 @@ def main():
             pass
     root = tk.Tk()
     setup_fonts(root)
-    App(root)
+    App(root, st)
     root.mainloop()
 
 
