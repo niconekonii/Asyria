@@ -15,7 +15,7 @@ If Defender complains, exclude **both** folders: your `ave` folder and `%LOCALAP
 
 - Pick a preset (Deep / Pomodoro / Sprint) or use **- / +** to change the minutes.
 - Click **Start** twice. After that there's no way out until the timer ends.
-- Breaks unblock everything. The next round blocks it all again.
+- Breaks unblock everything until the break ends (or you end it early with "end break early", two clicks). Then it all blocks again.
 - **settings** (only before a session): Programs (Browse or Running), Websites, Presets, Oblivionis.
 - **Updates:** Ave updates itself between sessions (settings > About > Check for updates, or
   auto-update). It restarts with the same rights it had, so admin stays admin.

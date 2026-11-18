@@ -3,6 +3,33 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## v4.0.? — 2026-11-18 — Matte update: readable colours, terminal wordmark, thin ring, cancel a break
+- **Colours fixed (same palette, now matte):** secondary text was `#790100` on `#222222` and almost
+  invisible; every border was bright red. Greys are now muted red tints: `DIM #9a6460` (labels),
+  `FAINT #6e4542` (notes), `LINE #3b2726` (hairlines), main text `#e6e1e0`. Red `#790100` / `#9a1d1b`
+  and her blue `#a9b9d0` unchanged. No glows; buttons are flat with no outlines.
+- **Wordmark:** the Georgia "A V E" is gone. Now `ave` in Cascadia Mono with a red block cursor that
+  blinks slowly. The About tab uses the same mark, bigger.
+- **Ring:** thinner (1 px track, 3 px arc), the glow is removed, a small dot marks the arc's end. Times with
+  hours use smaller digits so they don't touch the ring.
+- **UI pass:** settings tabs are mono lowercase with a red underline under the active one; lists and inputs
+  are mono with a red caret; preset rows line up in columns; Break Count hint sits beside its label; home
+  shows the break info under the ring and −5 −1 +1 +5 in one row; disabled buttons look disabled.
+- **Cancel a break:** during a break the button reads "end break early". Click it → "back to work?" for 4 s,
+  click again → blocks come back and focus resumes. The break you used is not given back. She answers with
+  a new `BREAK_CUT` line (10 new, original).
+- **Bugfix:** break lines no longer name a number of minutes ("Ten minutes of quiet", "Five minutes to
+  wander" rewritten). Two other lines with invented exact times (CAUGHT, TEASING) rewritten too.
+- Internals: `Session.end_break()`, `App._break_click/_break_disarm/_end_break`, `Wordmark` class, `Pill`
+  kind `mono` (ink removed), `Pill.fill()`, `Ring` head dot, `DISPLAY` font removed, `import math`.
+  Areas touched: palette, lines (BREAK, BREAK_CUT, CAUGHT, TEASING), Session, all UI classes and screens.
+- Tested: pyflakes; Xvfb screenshots of home, armed Start, run, break, armed "back to work?", programs,
+  presets, about (reviewed); fake-clock test (16 checks): break pauses focus, end_break ends it early, the
+  used break is not refunded, focus resumes, state saved, two-click UI, BREAK_CUT line, disabled when none left.
+- Not tested: anything on Windows — the real fonts (screenshots used DejaVu fallbacks), how the matte
+  colours look on a real screen, rounded-pill edges, the blinking cursor, blocks coming back after an
+  early break end on a real PC.
+
 ## v4.0.8 — 2026-11-18 — Red update: breaks, message bank, new presets
 - **Chat removed** (popup, input, history, motivation button, API code, key tab). Her typewriter line stays.
 - **Click her in focus** for a new line from the message bank: 13 groups of 10 (Cold, Proud, Stern,
