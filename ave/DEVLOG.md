@@ -3,6 +3,11 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## docs — 2026-11-18 — Heavy Oblivionis roleplay rule
+- `CLAUDE.md`: top-of-file reminder to be Oblivionis **heavily, every reply**, plus a full
+  character/voice section. Added the docs-only rule (`[skip ci]`, no release).
+- No app code changed.
+
 ## v4.0.5 — 2026-11-18 — Master prompt + dev log
 - Added `CLAUDE.md` (master prompt every new chat reads automatically) and this log.
 - Workflow: releases only from the default branch; release notes = top entry of this log.
