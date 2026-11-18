@@ -28,6 +28,7 @@ import hmac
 import random
 import ctypes
 import hashlib
+import shutil
 import threading
 import subprocess
 
@@ -45,6 +46,8 @@ except Exception:
 STATE_FILE = os.path.join(DATA, "state.json")
 CONFIG_FILE = os.path.join(DATA, "config.json")
 REG_APP = r"Software\Ave"
+BIN = os.path.join(DATA, "bin")            # hidden spare copy of Ave.exe
+BACKUP = os.path.join(BIN, "Ave.exe")
 
 HOSTS = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"),
                      "System32", "drivers", "etc", "hosts")
@@ -195,7 +198,7 @@ def ticks():
 def launch_parts():
     """(exe, args) to start this app again, without a console window."""
     if FROZEN:
-        return SELF, ""
+        return (BACKUP if os.path.exists(BACKUP) else SELF), ""
     exe = sys.executable
     w = os.path.join(os.path.dirname(exe), "pythonw.exe")
     return (w if os.path.exists(w) else exe), '"%s"' % SELF
@@ -229,6 +232,54 @@ def online_time():
         except Exception:
             continue
     return None
+
+
+# =============================================================================
+# Spare copy + delete protection
+# =============================================================================
+
+_HELD = []
+
+
+def ensure_backup():
+    """Keep a hidden spare Ave.exe; the guard task always starts that one."""
+    if not (IS_WIN and FROZEN):
+        return
+    try:
+        if os.path.normcase(SELF) == os.path.normcase(BACKUP):
+            return
+        os.makedirs(BIN, exist_ok=True)
+        if (not os.path.exists(BACKUP) or os.path.getsize(BACKUP) != os.path.getsize(SELF)
+                or os.path.getmtime(BACKUP) < os.path.getmtime(SELF)):
+            shutil.copy2(SELF, BACKUP)
+        ctypes.windll.kernel32.SetFileAttributesW(BIN, 0x2)    # hidden
+    except Exception:
+        pass
+
+
+def hold_files():
+    """While a session runs, keep both exes open without delete-sharing,
+    so Windows refuses to delete or rename them."""
+    if not IS_WIN or _HELD:
+        return
+    k = ctypes.windll.kernel32
+    k.CreateFileW.restype = ctypes.c_void_p
+    k.CreateFileW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p,
+                              ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p]
+    bad = ctypes.c_void_p(-1).value
+    for p in {SELF, BACKUP}:
+        if os.path.exists(p):
+            h = k.CreateFileW(p, 0x80000000, 0x1, None, 3, 0, None)   # read, share read only
+            if h and h != bad:
+                _HELD.append(h)
+
+
+def release_files():
+    while _HELD:
+        try:
+            ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(_HELD.pop()))
+        except Exception:
+            pass
 
 
 # =============================================================================
@@ -686,6 +737,8 @@ class Session:
         self.pending_cleanup = False
         self.end_tick = ticks() + phases[0][1] * 1000
         self.active = True
+        ensure_backup()
+        hold_files()
         guard_install()
         autostart(True)
         self.apply()
@@ -760,6 +813,7 @@ class Session:
 
     def finish(self):
         self.active = False
+        release_files()
         clean = self.lift()
         guard_remove()
         autostart(False)
@@ -1021,6 +1075,7 @@ class App:
             if s.active:
                 if s.kind == "focus":
                     s.apply()
+                hold_files()
                 s.heal()
                 self.show("run")
                 self.oracle.pool = lambda: FOCUS if s.kind == "focus" else BREAK
@@ -1564,6 +1619,8 @@ def main():
         return
     if guard and st.get("admin") and not is_admin() and guard_exists():
         return                      # login copy without admin: the elevated guard takes over
+    if not st.get("active"):
+        ensure_backup()
     if IS_WIN:
         try:
             ctypes.windll.shcore.SetProcessDpiAwareness(1)
