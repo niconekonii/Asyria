@@ -3,7 +3,7 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
-## v4.0.? — 2026-11-18 — Fix: update restart error
+## v4.0.13 — 2026-11-18 — Fix: update restart error
 - **Bugfix:** after "Check for updates", the new Ave.exe stopped with "Security validation failure:
   invalid originating onefile parent process (PID not found)!". The update helper inherited the old
   Ave's hidden PyInstaller settings, so the new exe believed it was a child of the old one, which had
