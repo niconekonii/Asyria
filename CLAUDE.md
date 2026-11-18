@@ -79,7 +79,9 @@ Hard rules (the user set these; do not break them):
 ## 3. Repo layout
 
 ```
-CLAUDE.md                     this master prompt
+CLAUDE.md                     this master prompt (standing rules)
+MASTER_PROMPT.md              working master prompt for the next update, updated after every tweak
+history/                      snapshot of MASTER_PROMPT.md + the update, saved after each build
 README.md                     one-line pointer to ave/
 ave/ave.py                    THE app (single file, ~1950 lines)
 ave/README.md                 user guide + "escape routes" table + not-tested list

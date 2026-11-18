@@ -3,6 +3,13 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## docs — 2026-11-18 — Master prompt for the next update
+- New `MASTER_PROMPT.md` (working reference, updated after every tweak) and a `history/` folder
+  for per-build snapshots. Points to them from `CLAUDE.md` §3.
+- Next update decided: remove the chat and API code, drop the word "Focus", "put the mask on?" /
+  "give me your life" buttons, 6 s confirm, message bank (15 groups of 10), new palette.
+- No app code changed.
+
 ## v4.0.7 — 2026-11-18 — Self-update
 - Settings > **About**: version, **Check for updates**, **auto-update on/off** (on by default).
 - On launch (not during a session, not on guard launches) Ave asks GitHub for the latest release;
