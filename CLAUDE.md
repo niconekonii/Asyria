@@ -66,15 +66,13 @@ Hard rules (the user set these; do not break them):
 2. While a focus session runs, chosen programs are closed/blocked and chosen websites blocked.
 3. **No way out:** no stop/cancel, close refused, settings locked, survives reboot,
    relaunches itself if killed.
-4. **Never block Task Manager.** Never block cmd/PowerShell (breaks Windows).
-   Never stop Windows services.
-5. **Fail-safe above all:** if any blocker fails, fall back to plain process killing;
+4. **Fail-safe above all:** if any blocker fails, fall back to plain process killing;
    **nothing may stay blocked after a session ends.** `Ave.exe --cleanup` lifts everything.
-6. **One file, Python standard library only** (`ave/ave.py`). No pip packages at runtime.
-7. **Look:** pure `#000000` background, white / dim-grey text, **one accent** —
+5. **One file, Python standard library only** (`ave/ave.py`). No pip packages at runtime.
+6. **Look:** pure `#000000` background, white / dim-grey text, **one accent** —
    Oblivionis stage-blue `#3d63e0`. Modern: rounded pills, thin progress ring, Segoe UI,
    Cascadia Mono / Consolas for her terminal line.
-8. Lightweight: no subprocess per tick, 2 s poll, small memory.
+7. Lightweight: no subprocess per tick, 2 s poll, small memory.
 
 ## 3. Repo layout
 

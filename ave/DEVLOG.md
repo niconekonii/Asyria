@@ -3,6 +3,13 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## docs — 2026-11-18 — Master prompt: next update expanded
+- `MASTER_PROMPT.md`: next update now also covers auto-relaunch after a restart, the manual
+  program box, ±1 timer buttons, fonts and effects, a 10% faster typewriter, and a shuffle-cycle
+  message bank that never ends.
+- `CLAUDE.md` rule 4 (Task Manager / cmd / PowerShell) removed; rules 5–8 renumbered to 4–7.
+- No app code changed.
+
 ## docs — 2026-11-18 — Master prompt answers
 - `MASTER_PROMPT.md`: the next update now lists the answers (random message in focus, special
   interactions +15 each, "Minutes" proposed for the preset field, Start/confirm labels, 6 s confirm,
