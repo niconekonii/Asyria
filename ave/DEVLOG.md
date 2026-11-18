@@ -3,7 +3,7 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
-## v4.0.? — 2026-11-18 — Matte update: readable colours, terminal wordmark, thin ring, cancel a break
+## v4.0.11 — 2026-11-18 — Matte update: readable colours, terminal wordmark, thin ring, cancel a break
 - **Colours fixed (same palette, now matte):** secondary text was `#790100` on `#222222` and almost
   invisible; every border was bright red. Greys are now muted red tints: `DIM #b37c78` (labels and help
   text, 4.6:1), `FAINT #946360` (small print, 3.2:1), `LINE #3b2726` (hairlines), main text `#e6e1e0`;
