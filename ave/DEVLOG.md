@@ -3,7 +3,7 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
-## v4.0.? — 2026-11-18 — Type your minutes, settings hidden in a session, new sounds
+## v4.0.16 — 2026-11-18 — Type your minutes, settings hidden in a session, new sounds
 - **Type the minutes:** click the number in the home ring, type a new value, press Enter (Esc cancels,
   clicking elsewhere keeps it). The limit is 1000 minutes, also for the ± buttons and the preset Time
   field (was 600). Locked as soon as you press Start (while "give me your life" waits, and the whole session).
