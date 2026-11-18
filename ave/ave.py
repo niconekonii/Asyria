@@ -310,6 +310,49 @@ REFUSE = [
     "I will not be dismissed mid-scene. Return to your seat.",
     "Attempts to leave are logged. Your reputation is at stake.",
 ]
+# ---- The one way out: the surrender ordeal (cold, taunting, never cruel) ------
+SURRENDER = [            # you asked to leave; she makes you wait and prove it
+    "So. You want out. Then prove the wanting is real. Sit still and wait.",
+    "The mask does not come off for the asking. It comes off for the earning. Wait.",
+    "You may leave. But not quickly, and not easily. Hold still and count the seconds.",
+    "A moment of weakness dressed as a decision. Wait it out, and we shall see.",
+    "I will let you go. First you will sit here and feel exactly how much you wanted to run.",
+    "Leaving is a line you must say perfectly. Wait for it. Breathe. Do not look away.",
+    "Every quitter wants it to be instant. It will not be. Wait.",
+]
+SCORN = [                # a wrong passphrase
+    "Wrong. A trembling hand betrays a half-heart. Say it again.",
+    "One character off. The whole line, again. I have all the time you are wasting.",
+    "No. If you cannot type it, you do not mean it. Again.",
+    "A mistake. How telling. Begin the line from the start.",
+    "That is not what I gave you. Look closer. Again.",
+    "Close is not the word. Exact is the word. Again.",
+]
+RELENT = [               # you got out
+    "Fine. Go. The stage will be cold when you come back to it, and you will come back.",
+    "You earned the exit, if not your pride. The curtain falls. Until the next act.",
+    "There. The mask is off. Remember that it took this much to remove it.",
+    "You walked out, slowly, with your eyes open. That is better than fleeing. Go.",
+    "Released. Do not mistake this mercy for approval. The next hour is still owed.",
+    "So you meant it after all. Go, then. I will be here when the running stops.",
+]
+STAYED = [               # you summoned the exit, then chose to stay
+    "Good. You reached for the door, then let it go. That is the whole of discipline.",
+    "You stayed. I will not praise it warmly, but I noticed it.",
+    "The flinch passed. You are still here. Continue.",
+    "Wise. The way out was never worth the hour it would cost you.",
+]
+SURRENDER_LEN = 40       # characters you must type exactly to leave
+SURRENDER_WAIT = 60      # seconds you must wait first
+SURRENDER_CLICKS = 10    # clicks on her line to summon the way out
+
+
+def surrender_phrase():
+    import string
+    pool = string.ascii_letters + string.digits
+    return "".join(random.choice(pool) for _ in range(SURRENDER_LEN))
+
+
 GLYPHS = "01#%&*+=<>/\\|"
 
 # ---- Oblivionis message bank: 13 groups of 10, plus CRYCHIC ---------------------
@@ -2116,7 +2159,30 @@ class App:
         self.break_btn.pack(pady=(S(24), 0))
         self.break_armed = False
         self.break_arm_job = None
-        tk.Label(f, text="there is no stop button.", bg=BG, fg=FAINT,
+
+        # The one way out: hidden until summoned by clicking her line SURRENDER_CLICKS times.
+        self.exit_box = tk.Frame(f, bg=BG)
+        self.exit_lbl = tk.Label(self.exit_box, text="", bg=BG, fg=DIM, font=(MONO, 9),
+                                 wraplength=S(360), justify="center")
+        self.exit_lbl.pack(pady=(0, S(8)))
+        self.exit_entry = tk.Entry(self.exit_box, bg=SURFACE, fg=FG, insertbackground=ACCENT_HI,
+                                   relief="flat", highlightthickness=1, highlightbackground=LINE,
+                                   highlightcolor=ACCENT, font=(MONO, 10), justify="center")
+        self._erow = tk.Frame(self.exit_box, bg=BG)
+        erow = self._erow
+        erow.pack()
+        self.exit_give = Pill(erow, "", self._surrender_check, w=150, h=38, kind="accent", size=10)
+        self.exit_give.pack(side="left", padx=S(4))
+        self.exit_stay = Pill(erow, "stay", self._surrender_cancel, w=110, h=38, size=10)
+        self.exit_stay.pack(side="left", padx=S(4))
+        self._surr_state = None
+        self._surr_phrase = ""
+        self._surr_deadline = 0
+        self._surr_job = None
+        self._exit_clicks = 0
+        self._exit_click_t = 0
+
+        tk.Label(f, text="the only way out will cost you.", bg=BG, fg=FAINT,
                  font=(MONO, 8)).pack(side="bottom", pady=S(12))
 
     def _set_pool(self):
@@ -2216,9 +2282,88 @@ class App:
         self.root.after(1000, self._loop)
 
     def _her_click(self):
-        """Clicking her text during a session gives a new line from the bank."""
-        if self.session.active:
+        """Clicking her text during a session gives a bank line. Ten clicks in a row
+        (within a few seconds) summons the one way out."""
+        if not self.session.active or self._surr_state is not None:
+            return
+        now = time.monotonic()
+        self._exit_clicks = self._exit_clicks + 1 if now - self._exit_click_t < 4 else 1
+        self._exit_click_t = now
+        if self._exit_clicks >= SURRENDER_CLICKS:
+            self._exit_clicks = 0
+            self._surrender_begin()
+        else:
             self.oracle.say(bank_line())
+
+    # ------------------------------------------------- the one way out (the ordeal)
+    def _surrender_begin(self):
+        self._surr_state = "wait"
+        self._surr_deadline = time.monotonic() + SURRENDER_WAIT
+        self.break_btn.pack_forget()
+        self.exit_box.pack(pady=(S(18), 0))
+        self.exit_entry.pack_forget()
+        self.exit_give.command = None
+        self.exit_give.set_text("wait")
+        self.exit_give.paint()
+        self.oracle.pool = lambda: FOCUS
+        self.oracle.say_from(SURRENDER)
+        self._surrender_tick()
+
+    def _surrender_tick(self):
+        if self._surr_state != "wait":
+            return
+        left = int(round(self._surr_deadline - time.monotonic()))
+        if left > 0:
+            self.exit_lbl.config(text="the mask will not come off for %d seconds.\nsit here. do not look away." % left)
+            self._surr_job = self.root.after(250, self._surrender_tick)
+        else:
+            self._surrender_to_type()
+
+    def _surrender_to_type(self):
+        self._surr_state = "type"
+        self._surr_phrase = surrender_phrase()
+        self.exit_lbl.config(text="type this, exactly, to be let go:\n\n%s" % self._surr_phrase)
+        self.exit_entry.delete(0, "end")
+        self.exit_entry.pack(fill="x", padx=S(20), pady=(0, S(10)), before=self._erow)
+        self.exit_entry.focus_set()
+        self.exit_give.command = self._surrender_check
+        self.exit_give.set_text("let me go")
+        self.exit_give.paint()
+
+    def _surrender_check(self):
+        if self._surr_state != "type":
+            return
+        if self.exit_entry.get() == self._surr_phrase:
+            self._surrender_commit()
+        else:
+            self._surr_phrase = surrender_phrase()
+            self.exit_entry.delete(0, "end")
+            self.exit_lbl.config(text="type this, exactly, to be let go:\n\n%s" % self._surr_phrase)
+            self.oracle.say_from(SCORN)
+
+    def _surrender_cancel(self):
+        self._surrender_reset()
+        self.oracle.say_from(STAYED)
+
+    def _surrender_reset(self):
+        if self._surr_job:
+            self.root.after_cancel(self._surr_job)
+            self._surr_job = None
+        self._surr_state = None
+        self.exit_entry.pack_forget()
+        self.exit_box.pack_forget()
+        if self.session.active:
+            self.break_btn.pack(pady=(S(24), 0))
+            self._refresh_break()
+
+    def _surrender_commit(self):
+        self._surrender_reset()
+        self.session.finish()            # ends the session: lifts every block, stops the guard/watcher
+        beep(330, 300)
+        self.oracle.pool = lambda: IDLE
+        self.oracle.label.config(cursor="arrow")
+        self.show("home")
+        self.oracle.say_from(RELENT)
 
     def _poll(self):
         """2 s enforcement tick (cheap ctypes snapshot)."""

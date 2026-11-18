@@ -18,6 +18,8 @@ Each item needs a real Windows test before it's called done.
 - The watchdog pair: kill-and-relaunch timing, one-watcher mutex, admin inheritance, both-killed fallback
 - The exit sealing: cmd/PowerShell/Task Manager/taskkill killed on sight during focus; the two-name
   (Ave.exe + AveGuard.exe) taskkill resistance; the suspend relaunch
+- The surrender ordeal: 10 clicks to summon, the 60 s wait, typing the 40-char phrase, and that committing
+  it truly ends the session and lifts every block on a real PC
 
 Also untested, from the next update onward: manual breaks, the manual program box,
 the ±1 timer buttons, the new fonts and effects, the message bank shuffle, the typewriter speed.

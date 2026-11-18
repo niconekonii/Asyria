@@ -3,6 +3,28 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## v4.0.? — 2026-11-18 — The one way out: the surrender ordeal
+- **A single, deliberately-grueling exit** (you asked for exactly one hard way to turn Ave off during a
+  session). Summon it by clicking Oblivionis's line ten times in a row. Then:
+  1. A forced **60-second wait** while she taunts you; the "let me go" button is dead until it passes.
+  2. Type a **random 40-character passphrase** exactly. One wrong character regenerates it and she scorns
+     you (no re-wait). A "stay" button is always there — staying is the easy choice, leaving is the hard one.
+  3. On success the session **ends and every block lifts** (same cleanup as finishing). She lets you go, cold.
+- This is the intended way out. `Ave.exe --cleanup` stays **only** as the break-glass fail-safe for when the
+  app itself is broken (window won't open), kept unconditional on purpose (master-prompt rule §4). Not an
+  everyday exit.
+- Run screen: "there is no stop button." becomes "the only way out will cost you."
+- New line pools (original, her voice, taunting but never cruel): `SURRENDER`, `SCORN`, `RELENT`, `STAYED`.
+  Tunable constants `SURRENDER_LEN=40`, `SURRENDER_WAIT=60`, `SURRENDER_CLICKS=10`; `surrender_phrase()`.
+- Internals: hidden `exit_box` overlay on the run screen; `_her_click` counts clicks;
+  `_surrender_begin/_tick/_to_type/_check/_cancel/_reset/_commit`; commit calls `Session.finish()`.
+- Tested: pyflakes; Xvfb state-machine test (15 checks): 9 clicks don't summon, 10 do, wait gate, 40-char
+  phrase, wrong phrase regenerates + SCORN + session survives, correct phrase ends the session and lands
+  home with a RELENT line, stay cancels with a STAYED line, phrases are unique 40-char alphanumerics.
+  Screenshots of the wait and type stages reviewed. Earlier suites pass (edit 15, digits 85, lock 9, watch 20).
+- Not tested: the ordeal on a real Windows PC — the clicks, the real 60 s wait, typing the phrase, and that
+  the session truly ends and unblocks everything there.
+
 ## v4.0.? — 2026-11-18 — Seal every reachable exit
 - **Every kill/inspect tool is sealed during focus.** On top of mmc/schtasks/regedit, SEAL now closes, on
   sight: Task Manager, cmd, PowerShell (+ISE, pwsh), Windows Terminal, ConEmu, taskkill, tskill, WMIC,

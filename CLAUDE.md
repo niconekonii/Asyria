@@ -66,7 +66,7 @@ Hard rules (the user set these; do not break them):
 2. While a focus session runs, chosen programs are closed/blocked and chosen websites blocked.
    Breaks are taken by hand (Break button, up to the preset's Break Count), and the
    countdown pauses during them. Built for one user: no accounts, no profiles.
-3. **No way out:** no stop/cancel, close refused, settings locked, survives reboot,
+3. **One deliberately-grueling way out:** no casual stop/cancel, close refused, settings locked, survives reboot,
    relaunches itself if killed.
 4. **Fail-safe above all:** if any blocker fails, fall back to plain process killing;
    **nothing may stay blocked after a session ends.** `Ave.exe --cleanup` lifts everything.
@@ -145,9 +145,12 @@ Top to bottom:
   - Presets (`DEFAULT_CFG`, `PRESET_FIELDS`, `migrate_presets()`): Name / Time / Break Count /
     Break Time, stacked; number boxes filtered by `PRESET_DIGITS`. Rows are aligned mono columns "Name  N min  N breaks".
   - Programs: manual box (`add_manual`: `name` or `name.exe`), Browse, Running, Remove.
+  - The one way out (`exit_box` on the run screen): `_her_click` counts 10 clicks -> `_surrender_begin`
+    -> `_tick` (60 s wait) -> `_to_type` (random 40-char phrase) -> `_check` (wrong = regenerate + SCORN;
+    right = `_commit` -> `Session.finish`) / `_cancel` (STAYED). Constants `SURRENDER_LEN/WAIT/CLICKS`.
   Loops: `_loop` 1 s UI and countdown, `_poll` 2 s enforce, `_heal` 30 s.
 - **Oblivionis lines:** `IDLE, FOCUS, CAUGHT, SEALED, RETURNED, BREAK, DONE, REFUSE` (original
-  + 15 each), `BREAK_CUT` (10, break ended early). Break lines never name a number of minutes (the
+  + 15 each), `BREAK_CUT` (10), `SURRENDER`/`SCORN`/`RELENT`/`STAYED` (the way-out ordeal). Break lines never name a number of minutes (the
   break length varies), `BANK` (13 groups of 10 + CRYCHIC). `Deck` = shuffle cycle (plays every line once, then
   reshuffles, never repeats back to back). `deck_for(lines)`, `bank_line()`. Click her text in a
   session for a bank line. Typewriter speed = `TYPE_SPEED`. The chat and API were removed in v4.0.8.
