@@ -3,11 +3,11 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
-## v4.0.? — 2026-11-18 — Master prompt + dev log
+## v4.0.5 — 2026-11-18 — Master prompt + dev log
 - Added `CLAUDE.md` (master prompt every new chat reads automatically) and this log.
 - Workflow: releases only from the default branch; release notes = top entry of this log.
 - No app code changed.
-- Tested: workflow YAML reviewed; release step verified by this build.
+- Tested: workflow YAML reviewed; release notes from DEVLOG confirmed on the published release.
 - Not tested: n/a (no app changes).
 
 ## v4.0.4 — 2026-11-18 — Delete protection
