@@ -718,6 +718,10 @@ if IS_WIN:
     _k32.CloseHandle.argtypes = [wt.HANDLE]
     _k32.QueryFullProcessImageNameW.argtypes = [wt.HANDLE, wt.DWORD, wt.LPWSTR,
                                                 ctypes.POINTER(wt.DWORD)]
+    _k32.WaitForSingleObject.argtypes = [wt.HANDLE, wt.DWORD]
+    _k32.WaitForSingleObject.restype = wt.DWORD
+    _k32.OpenMutexW.restype = wt.HANDLE
+    _k32.OpenMutexW.argtypes = [wt.DWORD, wt.BOOL, wt.LPWSTR]
     _INVALID = wt.HANDLE(-1).value
 
 
@@ -765,6 +769,83 @@ def kill(pid):
     if h:
         _k32.TerminateProcess(h, 1)
         _k32.CloseHandle(h)
+
+
+# --- Watchdog pair: a hidden second Ave that drags the window back the instant
+#     it is killed. Belt to the AveGuard task's 1-minute braces. ------------------
+WATCH_MUTEX = "Local\\AveWatcher"
+WATCH_PID = os.path.join(DATA, "watch.pid")
+DETACHED = 0x00000008              # DETACHED_PROCESS: outlive the parent cleanly
+_WAIT_TIMEOUT = 0x102
+
+
+def wait_proc(pid, ms):
+    """Block up to `ms` ms, waking the instant process `pid` ends.
+    Returns 'alive' (still running at timeout) or 'gone'."""
+    if not IS_WIN or not pid:
+        return "gone"
+    h = _k32.OpenProcess(0x00100000, False, int(pid))   # SYNCHRONIZE
+    if not h:
+        return "gone"
+    try:
+        return "alive" if _k32.WaitForSingleObject(h, int(ms)) == _WAIT_TIMEOUT else "gone"
+    finally:
+        _k32.CloseHandle(h)
+
+
+def watcher_running():
+    """True if a watcher process already holds its mutex."""
+    if not IS_WIN:
+        return False
+    h = _k32.OpenMutexW(0x00100000, False, WATCH_MUTEX)   # SYNCHRONIZE
+    if h:
+        _k32.CloseHandle(h)
+        return True
+    return False
+
+
+def _spawn(extra):
+    """Start another copy of Ave (no window, detached) with `extra` args."""
+    if not IS_WIN:
+        return False
+    exe, base = launch_parts()
+    cmd = ('"%s" %s %s' % (exe, base, extra)).replace("  ", " ").strip()
+    try:
+        subprocess.Popen(cmd, creationflags=NOWIN | DETACHED, close_fds=True)
+        return True
+    except Exception:
+        return False
+
+
+def spawn_watcher():
+    """Make sure one watcher is guarding this process. A duplicate self-exits."""
+    if IS_WIN and not watcher_running():
+        _spawn("--watch %d" % os.getpid())
+
+
+def kill_watcher():
+    """Best-effort: end the watcher so nothing lingers after a session."""
+    if not IS_WIN:
+        return
+    try:
+        pid = int(load_json(WATCH_PID, {}).get("pid", 0))
+    except (ValueError, TypeError):
+        pid = 0
+    if pid:
+        kill(pid)
+    try:
+        os.remove(WATCH_PID)
+    except OSError:
+        pass
+
+
+def watch_decide(active, status):
+    """Pure policy, so it can be tested off Windows.
+    active: is a session still live in state. status: 'alive' | 'gone'.
+    Returns 'stop' | 'relaunch' | 'wait'."""
+    if not active:
+        return "stop"
+    return "relaunch" if status == "gone" else "wait"
 
 
 def _norm_dir(d):
@@ -1133,6 +1214,7 @@ class Session:
         autostart(True)
         self.apply()
         self.save()
+        spawn_watcher()
 
     def take_break(self):
         """Start a break now. Returns False if none is allowed."""
@@ -1232,6 +1314,7 @@ class Session:
         if not clean and not run_elevated("--cleanup"):
             self.pending_cleanup = True    # retried on every launch until clean
         self.save()
+        kill_watcher()
 
 
 def cleanup_everything():
@@ -1242,6 +1325,7 @@ def cleanup_everything():
     ok = lift_all(sorted(exes))
     guard_remove()
     autostart(False)
+    kill_watcher()
     st.update(active=False, pending_cleanup=not ok, seq=st.get("seq", 0) + 1)
     state_save(st)
 
@@ -1796,6 +1880,7 @@ class App:
                 s.apply()
             hold_files()
             s.heal()
+            spawn_watcher()
             self.show("run")
             self._set_pool()
             self.oracle.say_from(RETURNED)
@@ -2108,6 +2193,7 @@ class App:
         if not self.session.active:
             return
         self.session.heal()
+        spawn_watcher()                      # bring the watcher back if it was killed
         self.root.after(30000, self._heal)
 
     def _complete(self):
@@ -2482,6 +2568,49 @@ def release_lock():
     _LOCK = None
 
 
+def run_watcher(target):
+    """The hidden guard. Waits on the main Ave; the instant it dies while a
+    session is live, it relaunches it (~1-3 s). One watcher only, enforced by a
+    mutex; it exits the moment the session ends, so nothing blocks lingers."""
+    if not IS_WIN:
+        return
+    k = ctypes.windll.kernel32
+    k.CreateMutexW.restype = ctypes.c_void_p
+    h = k.CreateMutexW(None, False, WATCH_MUTEX)
+    if k.GetLastError() == 183:            # ERROR_ALREADY_EXISTS: another watcher runs
+        k.CloseHandle(ctypes.c_void_p(h))
+        return
+    save_json(WATCH_PID, {"pid": os.getpid()})
+    try:
+        pid = int(target)
+        while True:
+            st = state_load()
+            pid = st.get("pid") or pid
+            status = wait_proc(pid, 1500) if state_load().get("active") else "gone"
+            move = watch_decide(state_load().get("active"), status)
+            if move == "stop":
+                return
+            if move == "relaunch":
+                if not acquire_lock():     # the app is somehow already back; let it be
+                    release_lock()
+                    time.sleep(1.0)
+                    continue
+                release_lock()             # we only checked; the real app takes the lock
+                _spawn("")                 # start a fresh Ave with the same rights
+                for _ in range(40):        # wait for the new app to claim a pid (~12 s)
+                    time.sleep(0.3)
+                    new = state_load().get("pid")
+                    if new and new != pid and wait_proc(new, 0) == "alive":
+                        pid = new
+                        break
+    finally:
+        try:
+            os.remove(WATCH_PID)
+        except OSError:
+            pass
+        k.CloseHandle(ctypes.c_void_p(h))
+
+
 def focus_existing():
     try:
         u = ctypes.windll.user32
@@ -2517,6 +2646,10 @@ def take_over_if_frozen():
 def main():
     if "--cleanup" in sys.argv:
         cleanup_everything()
+        return
+    if "--watch" in sys.argv:
+        i = sys.argv.index("--watch")
+        run_watcher(sys.argv[i + 1] if i + 1 < len(sys.argv) else 0)
         return
     guard = "--guard" in sys.argv
     if not acquire_lock():

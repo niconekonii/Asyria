@@ -3,6 +3,31 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## v4.0.? — 2026-11-18 — Watchdog pair: near-instant relaunch when killed
+- **Harder to close:** while a session runs, Ave starts a hidden second copy of itself (`--watch`) with
+  no window. It waits on the main Ave with `WaitForSingleObject`, so the instant the main window is killed
+  (Task Manager > End task) it relaunches it in about 1-3 seconds, instead of waiting up to a minute for
+  the `AveGuard` task. The main Ave re-spawns the watcher too, so killing the watcher alone brings it back
+  within ~30 s. The 1-minute `AveGuard` task stays as the bottom layer.
+- Each one takes the other's place, both named `Ave.exe`. Only one watcher ever runs (its own mutex
+  `Local\AveWatcher`); a duplicate self-exits. The watcher inherits the session's rights, so an admin
+  session relaunches as admin with no UAC prompt.
+- **Fail-safe kept:** the watcher only relaunches while `state.active` is true. It exits within ~1.5 s of a
+  session ending, and `finish()` and `--cleanup` kill it by the pid in `DATA\watch.pid`. Nothing stays
+  blocked, and nothing relaunches, after a session.
+- **Still open (by design):** `taskkill /f /im Ave.exe` in cmd kills both copies at once (they share the
+  name), which falls back to the 1-minute task. cmd stays reachable on purpose.
+- Internals: `wait_proc`, `watcher_running`, `_spawn`, `spawn_watcher`, `kill_watcher`, `watch_decide`
+  (pure policy), `run_watcher` + `--watch` in `main()`; `WATCH_MUTEX`, `WATCH_PID`, `DETACHED`;
+  `WaitForSingleObject`/`OpenMutexW` added to the ctypes setup. Spawn hooked into `Session.start`, resume
+  and the 30 s heal; kill into `finish` and `cleanup_everything`.
+- Cost: a second process (~20-40 MB) while a session runs. Noted against the "lightweight" rule.
+- Tested: pyflakes; off-Windows test (14 checks): the relaunch/stop/wait policy, the spawn and relaunch
+  command strings (frozen and dev), a duplicate not spawned, `kill_watcher` reading the pid file, `--watch`
+  routing. Earlier suites still pass (editing 15, digits 85, lock 9, breaks 16). Screenshots unchanged.
+- Not tested: any of it on a real Windows PC - the actual kill-and-relaunch timing, the mutex single-watcher
+  guarantee, admin inheritance, both-killed fallback.
+
 ## v4.0.16 — 2026-11-18 — Type your minutes, settings hidden in a session, new sounds
 - **Type the minutes:** click the number in the home ring, type a new value, press Enter (Esc cancels,
   clicking elsewhere keeps it). The limit is 1000 minutes, also for the ± buttons and the preset Time
