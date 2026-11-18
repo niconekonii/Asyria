@@ -3,6 +3,14 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## docs — 2026-11-18 — Master prompt: break design, notes file
+- `MASTER_PROMPT.md`: breaks decided — the focus countdown pauses during any break; presets are
+  Name / Time / Break Count (0 = none) / Break Time, stacked vertically, "Rounds" removed;
+  "Automatic breaks" toggle kept. Four questions left open.
+- Known gaps moved out of the master prompt into `NOTES.md`.
+- `CLAUDE.md` map lists `NOTES.md`.
+- No app code changed.
+
 ## docs — 2026-11-18 — Master prompt: fonts, manual breaks
 - `MASTER_PROMPT.md`: fonts chosen (Georgia, Bahnschrift, Cascadia Mono), effects confirmed,
   typewriter 10% confirmed, preset fields Name / Time / Break Time / Breaks (pending), manual

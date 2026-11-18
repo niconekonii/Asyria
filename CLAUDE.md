@@ -79,6 +79,7 @@ Hard rules (the user set these; do not break them):
 ```
 CLAUDE.md                     this master prompt (standing rules)
 MASTER_PROMPT.md              working master prompt for the next update, updated after every tweak
+NOTES.md                      known gaps: code never run on a real Windows PC
 history/                      snapshot of MASTER_PROMPT.md + the update, saved after each build
 README.md                     one-line pointer to ave/
 ave/ave.py                    THE app (single file, ~1950 lines)
