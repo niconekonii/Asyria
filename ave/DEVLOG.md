@@ -3,7 +3,7 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
-## v4.0.? — 2026-11-19 — Windows 11 audit: guard task fixed, Firefox gap closed, matte title bar
+## v4.0.43 — 2026-11-19 — Windows 11 audit: guard task fixed, Firefox gap closed, matte title bar
 - **Guard task fixed (real bug).** It was made with plain `schtasks /SC MINUTE`, which inherits Windows
   defaults: it **never started on battery**, **was killed the moment a laptop unplugged**, ran at **Below
   Normal** priority, had a 72 h limit, and **ignored new starts while its first copy ran** (so it could
