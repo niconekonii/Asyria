@@ -3,6 +3,22 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## v4.0.? — 2026-11-19 — Console redesign: it stops looking authorless
+- A committed terminal/console art direction, so the UI no longer floats as plain centred widgets:
+  - **A bordered shell** — the whole app sits inside a drawn 1 px console frame with a small gutter.
+  - **Titlebar + rule** at the top (the `ave█` wordmark and the settings/●-locked state, a hairline beneath).
+  - **A status strip** at the bottom, above Oblivionis: `> ready · no-admin`, `> ● locked · admin`,
+    `> no-admin · sites will not block`. The duplicate admin line in Settings is gone.
+  - **The ring is now an instrument:** 60 dial ticks around the rim (every 5th brighter) and faint CRT
+    scanlines across its panel. Sub-labels are small-caps (MIN, 2 BREAKS LEFT, ON BREAK).
+  - Tighter, consistent margins (the old 24 px gutters → 16 px) so nothing sprawls.
+- Palette gains three matte tones: `SCAN` (scanline), `TICK`/`TICK_HI` (dial ticks). No glows added — still flat.
+- Internals: `App.shell`, `_build_statusbar()`/`_refresh_status()`; `Ring.__init__` draws scanlines + ticks;
+  header and body re-parented into the shell.
+- Tested: pyflakes; Xvfb screenshots of home, run, presets, about reviewed (frame, ticks, scanlines, status
+  strip, small-caps). Ordeal/edit/lock suites still pass (surrender 14, edit 15, lock 9).
+- Not tested: how the frame, ticks and scanlines render with the real Bahnschrift/Cascadia fonts on Windows.
+
 ## v4.0.? — 2026-11-19 — Hotfix: the memorised code is now 10 digits, not 3
 - The way-out code you must hold in your head is now a random **10-digit** number (a phone number's worth),
   not three. Still flashed for 10 s at the start, then hidden through the wait and the typing; a wrong guess

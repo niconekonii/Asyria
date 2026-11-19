@@ -106,7 +106,7 @@ Top to bottom:
   killed), `SEAL` (every kill/inspect tool closed on sight during focus: Task Manager, cmd, PowerShell, wt,
   taskkill, wmic, mmc, schtasks, regedit, common process killers), `ALIASES` (extra domains per site), palette
   (`BG #222222`, `SURFACE`/`SURFACE2`/`SURFACE3`, `ACCENT` red, `DIM`/`FAINT`/`LINE` matte dark red,
-  `ACCENT_DIM`, `ACCENT_FG`, `RING_TRACK`, `HER #a9b9d0`), `TYPE_SPEED`.
+  `ACCENT_DIM`, `ACCENT_FG`, `RING_TRACK`, `HER #a9b9d0`, `SCAN`/`TICK`/`TICK_HI` for the console), `TYPE_SPEED`.
 - **Helpers:** `beep()`, `melody(notes)` (background thread; `SOUND_START` minor rising, `SOUND_DONE`
   major falling), `MAX_MIN = 1000`, `digits_only()` (number boxes: 0-9 only, length cap), `ticks()` = Windows uptime ms (`GetTickCount64`, clock-proof),
   `online_time()` (HTTP Date header from google/microsoft/cloudflare), `run_elevated()` (UAC).
@@ -134,10 +134,10 @@ Top to bottom:
   diff; after reboot → online time diff, else offline counts only this boot. Old phase-format state is
   not resumed.
 - **UI (tkinter):** `Pill` (flat rounded button; kinds accent / ghost / chip / mono; `command=None`
-  = disabled look), `Ring` (thin progress ring + head dot; digits shrink for H:MM:SS; `sweep()` winds it
+  = disabled look), `Ring` (thin progress ring + head dot, dial ticks + CRT scanlines; digits shrink for H:MM:SS; `sweep()` winds it
   in on each screen change; `editable()` = click the number to type it, `stop_edit()`), `Wordmark` (`ave` + slow-blinking red block cursor), `Oracle` (Oblivionis
   typewriter line, matrix noise glyph, blinking █, auto-speaks every ~13 s, click = `on_click`).
-  `App`: header (Wordmark, settings; nothing on the right during a session), screens `home`, `run`, `settings`
+  `App`: everything inside a bordered `shell`; titlebar (Wordmark + settings/●-locked) with a rule; a bottom status strip (`_build_statusbar`/`_refresh_status`); screens `home`, `run`, `settings`
   (mono lowercase tabs with a red underline: programs / websites / presets / about), Oracle at bottom.
   - Home: ring (click the number to type 1–1000 min, `_typed_minutes`; locked once Start is pressed), break meta line, −5 −1 +1 +5 buttons, preset chips (first four), Start.
     Start says "put the mask on?", then "give me your life" for 6 s; `_pulse` while armed.

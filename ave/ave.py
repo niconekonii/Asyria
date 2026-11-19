@@ -125,6 +125,9 @@ ACCENT_DIM = "#3a1514"    # selected chip, selected list row
 ACCENT_FG = "#f0e4e2"     # text on red
 ACCENT_MUTED = "#6f7f96"  # darker blue for the OBLIVIONIS // label
 HER = "#a9b9d0"           # Oblivionis's own line stays blue
+SCAN = "#2b2628"          # faint CRT scanline, just above the background
+TICK = "#4a302e"          # minor dial ticks around the ring
+TICK_HI = "#7a4d49"       # major dial ticks (every 5th)
 TYPE_SPEED = 0.9          # typewriter: 10% faster per character
 
 # ---- Oblivionis: special interactions (original lines + 15 new each) ---------
@@ -1632,6 +1635,16 @@ class Ring(tk.Canvas):
         super().__init__(master, width=D, height=D, bg=BG, highlightthickness=0, bd=0)
         p = S(12)
         self.c, self.r = D / 2, D / 2 - p
+        for y in range(0, D, max(2, S(3))):                  # CRT scanlines
+            self.create_line(0, y, D, y, fill=SCAN)
+        for i in range(60):                                  # dial ticks around the rim
+            ang = math.radians(90 - i * 6)
+            ca, sa = math.cos(ang), math.sin(ang)
+            major = (i % 5 == 0)
+            o, inn = self.r - S(2), self.r - (S(9) if major else S(5))
+            self.create_line(self.c + o * ca, self.c - o * sa,
+                             self.c + inn * ca, self.c - inn * sa,
+                             fill=(TICK_HI if major else TICK), width=1)
         self.create_oval(p, p, D - p, D - p, outline=RING_TRACK, width=max(1, S(1)))
         self.arc = self.create_arc(p, p, D - p, D - p, start=90, extent=-359.9,
                                    style="arc", outline=ACCENT, width=S(self.ARC_W))
@@ -1707,7 +1720,7 @@ class Ring(tk.Canvas):
     def set(self, frac, big, small):
         self.frac = max(0.0, min(1.0, frac))
         self.itemconfig(self.big, text=big, font=(UI_LIGHT, 36 if len(big) > 5 else 44))
-        self.itemconfig(self.small, text=small)
+        self.itemconfig(self.small, text=small.upper())
         if not self.sweeping:
             self._draw(self.frac)
 
@@ -1796,10 +1809,10 @@ class Oracle:
         self.frame = tk.Frame(master, bg=BG)
         tk.Frame(self.frame, bg=LINE, height=1).pack(fill="x")
         tk.Label(self.frame, text="OBLIVIONIS  //", bg=BG, fg=ACCENT_MUTED,
-                 font=(MONO, 8, "bold"), anchor="w").pack(fill="x", padx=S(24), pady=(S(16), S(4)))
+                 font=(MONO, 8, "bold"), anchor="w").pack(fill="x", padx=S(16), pady=(S(16), S(4)))
         self.label = tk.Label(self.frame, text="", bg=BG, fg=HER, font=(MONO, 10),
                               anchor="nw", justify="left", wraplength=S(400), height=3)
-        self.label.pack(fill="x", padx=S(24), pady=(0, S(16)))
+        self.label.pack(fill="x", padx=S(16), pady=(0, S(16)))
         self.label.bind("<Button-1>", lambda e: self.on_click and self.on_click())
         self.job = None
         self.full = ""
@@ -1907,10 +1920,15 @@ class App:
         root.minsize(S(420), S(640))
         dark_titlebar(root)
 
+        self.shell = tk.Frame(root, bg=BG, highlightthickness=1,
+                              highlightbackground=LINE, highlightcolor=LINE)
+        self.shell.pack(fill="both", expand=True, padx=S(8), pady=S(8))
         self._build_header()
-        self.body = tk.Frame(root, bg=BG)
-        self.oracle = Oracle(root, root)
+        self.oracle = Oracle(self.shell, root)
         self.oracle.frame.pack(side="bottom", fill="x")
+        self._build_statusbar()
+        self.statusbar.pack(side="bottom", fill="x")
+        self.body = tk.Frame(self.shell, bg=BG)
         self.body.pack(fill="both", expand=True)
         self._build_home()
         self._build_run()
@@ -1985,14 +2003,32 @@ class App:
 
     # ----------------------------------------------------------------- header
     def _build_header(self):
-        h = tk.Frame(self.root, bg=BG)
-        h.pack(fill="x", padx=S(24), pady=(S(16), 0))
+        h = tk.Frame(self.shell, bg=BG)
+        h.pack(fill="x", padx=S(16), pady=(S(12), S(8)))
         Wordmark(h, 13).pack(side="left")
         self.hdr_right = tk.Label(h, text="settings", bg=BG, fg=DIM, font=(MONO, 9), cursor="hand2")
         self.hdr_right.pack(side="right")
+        tk.Frame(self.shell, bg=LINE, height=1).pack(fill="x", padx=S(16))
         self.hdr_right.bind("<Button-1>", lambda e: self._header_click())
         self.hdr_right.bind("<Enter>", lambda e: self._hdr_hover(True))
         self.hdr_right.bind("<Leave>", lambda e: self._hdr_hover(False))
+
+    def _build_statusbar(self):
+        self.statusbar = tk.Frame(self.shell, bg=BG)
+        tk.Frame(self.statusbar, bg=LINE, height=1).pack(fill="x", padx=S(16))
+        self.status_lbl = tk.Label(self.statusbar, text="> ready", bg=BG, fg=FAINT,
+                                   font=(MONO, 8), anchor="w")
+        self.status_lbl.pack(fill="x", padx=S(16), pady=(S(6), S(6)))
+
+    def _refresh_status(self):
+        s = self.session
+        adm = "admin" if is_admin() else "no-admin"
+        if s.active:
+            self.status_lbl.config(text="> %s  ·  %s" % ("on break" if s.on_break else "● locked", adm))
+        elif self.current == "settings":
+            self.status_lbl.config(text="> %s  ·  %s" % (adm, "full blocking" if is_admin() else "sites will not block"))
+        else:
+            self.status_lbl.config(text="> ready  ·  %s" % adm)
 
     def _hdr_hover(self, on):
         if not self.session.active:
@@ -2023,12 +2059,13 @@ class App:
             self._refresh_settings()
         if name == "run":
             self.run_ring.sweep()
+        self._refresh_status()
 
     # ------------------------------------------------------------------- home
     def _build_home(self):
         f = self.home = tk.Frame(self.body, bg=BG)
         self.home_ring = Ring(f)
-        self.home_ring.pack(pady=(S(24), S(4)))
+        self.home_ring.pack(pady=(S(16), S(4)))
         self.home_ring.editable(self._typed_minutes,
                                 allowed=lambda: not self.armed and not self.session.active)
         self.home_meta = tk.Label(f, text="", bg=BG, fg=DIM, font=(MONO, 9))
@@ -2039,10 +2076,10 @@ class App:
         for i, d in enumerate((-5, -1, 1, 5)):
             Pill(adj, ("−%d" if d < 0 else "+%d") % abs(d), lambda d=d: self._bump(d),
                  w=50, h=32, kind="mono", size=10).pack(
-                side="left", padx=(S(24) if i == 2 else S(4), S(4)))
+                side="left", padx=(S(16) if i == 2 else S(4), S(4)))
 
         self.chips = tk.Frame(f, bg=BG)
-        self.chips.pack(pady=(S(16), S(24)))
+        self.chips.pack(pady=(S(16), S(16)))
 
         self.start_btn = Pill(f, "put the mask on?", self._start, w=300, h=50, kind="accent", size=12)
         self.start_btn.pack()
@@ -2152,11 +2189,11 @@ class App:
     def _build_run(self):
         f = self.run = tk.Frame(self.body, bg=BG)
         self.run_ring = Ring(f, size=280)
-        self.run_ring.pack(pady=(S(24), S(8)))
+        self.run_ring.pack(pady=(S(16), S(8)))
         self.run_end = tk.Label(f, text="", bg=BG, fg=DIM, font=(MONO, 9))
         self.run_end.pack()
         self.break_btn = Pill(f, "", self._break_click, w=240, h=40, size=10)
-        self.break_btn.pack(pady=(S(24), 0))
+        self.break_btn.pack(pady=(S(16), 0))
         self.break_armed = False
         self.break_arm_job = None
 
@@ -2280,6 +2317,7 @@ class App:
         self.run_ring.set(rem / s.phase_len(), big, label)
         free = time.strftime("%H:%M", time.localtime(time.time() + s.total_left()))
         self.run_end.config(text="free at %s" % free)
+        self._refresh_status()
         self._refresh_break()
         self.oracle.label.config(cursor="hand2")
         self.root.after(1000, self._loop)
@@ -2369,7 +2407,7 @@ class App:
         self.exit_entry.pack_forget()
         self.exit_box.pack_forget()
         if self.session.active:
-            self.break_btn.pack(pady=(S(24), 0))
+            self.break_btn.pack(pady=(S(16), 0))
             self._refresh_break()
 
     def _surrender_commit(self):
@@ -2429,7 +2467,7 @@ class App:
     def _build_settings(self):
         f = self.settings = tk.Frame(self.body, bg=BG)
         tabs = tk.Frame(f, bg=BG)
-        tabs.pack(fill="x", padx=S(24), pady=(S(24), 0))
+        tabs.pack(fill="x", padx=S(16), pady=(S(16), 0))
         self.tab_btns = {}
         for name in ("Programs", "Websites", "Presets", "About"):
             col = tk.Frame(tabs, bg=BG)
@@ -2442,18 +2480,12 @@ class App:
             b.bind("<Enter>", lambda e, n=name: n != self.tab_name and self.tab_btns[n][0].config(fg=FG))
             b.bind("<Leave>", lambda e, n=name: n != self.tab_name and self.tab_btns[n][0].config(fg=DIM))
             self.tab_btns[name] = (b, bar)
-        tk.Frame(f, bg=LINE, height=1).pack(fill="x", padx=S(24))
+        tk.Frame(f, bg=LINE, height=1).pack(fill="x", padx=S(16))
         self.tab_body = tk.Frame(f, bg=BG)
-        self.tab_body.pack(fill="both", expand=True, padx=S(24), pady=(S(16), 0))
-        self.admin_lbl = tk.Label(f, text="", bg=BG, font=(MONO, 8), anchor="w")
-        self.admin_lbl.pack(fill="x", padx=S(24), pady=(0, S(12)))
+        self.tab_body.pack(fill="both", expand=True, padx=S(16), pady=(S(16), 0))
         self.tab_name = "Programs"
 
     def _refresh_settings(self):
-        if is_admin():
-            self.admin_lbl.config(text="● administrator  ·  full blocking", fg=DIM)
-        else:
-            self.admin_lbl.config(text="○ not administrator  ·  programs closed, sites not blocked", fg=DIM)
         self._tab(self.tab_name)
 
     def _listbox(self, parent, h=8, multi=False):
