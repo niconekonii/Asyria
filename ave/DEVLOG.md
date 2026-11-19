@@ -3,6 +3,21 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## v4.0.? — 2026-11-19 — Way-out passphrase -> a random 3-digit code
+- The 200-character passphrase is gone. The final step of the surrender ordeal is now a **random 3-digit
+  code** (e.g. 272, 100, 007), freshly rolled each time it is shown and re-rolled on every wrong guess.
+  No memorising, no automating — you must read the current number and enter it, present and awake.
+- The weight of the ordeal stays on the **50 clicks** and the **5-minute wait**; the code is the proof you
+  are actually there at the end of it, not a sleepwalker. The door still opens — on purpose, deliberately,
+  never by accident.
+- The entry box now takes digits only (max 3) and shows them larger; the prompt reads "type this number".
+- Internals: `SURRENDER_LEN` 200 -> 3 (now digits in the code); `surrender_phrase()` returns a digit code;
+  `exit_entry` gets a `digits_only` validator. Clicks (50) and wait (300 s) unchanged.
+- Tested: pyflakes; Xvfb ordeal test (15 checks) — summon at 50 clicks, the 300 s wait gate, a 3-digit code,
+  wrong code regenerates + scorns, correct code ends the session, stay cancels, codes are random 3-digit
+  numbers that vary. Screenshot of the code stage reviewed. Earlier suites pass.
+- Not tested: the real clicks, the 5-minute wait, and entering the code on a real Windows PC.
+
 ## v4.0.26 — 2026-11-19 — The surrender ordeal, 5x harder
 - You asked for five times the cruelty on the one way out. Every dial turned:
   - Clicks to summon it: 10 -> **50**.

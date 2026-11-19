@@ -43,6 +43,10 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 3. New start sound (minor, rising) and a different end sound (major, falling).
 4. Purpose: also tests the update restart fix (v4.0.13 → this release should restart by itself).
 
+## 5h. Way-out code: random 3 digits (BUILT, release pending)
+- The ordeal's final step is a random 3-digit code (re-rolled every time), not the 200-char passphrase.
+  Still 50 clicks + 5-min wait; the code is a presence check, and the door still opens.
+
 ## 5g. Ordeal 5x harder (SHIPPED as v4.0.26)
 - The surrender ordeal's three dials x5: 50 clicks to summon, 300 s (5 min) wait, 200-char passphrase.
   Still the only way out; no command line.

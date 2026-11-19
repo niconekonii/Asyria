@@ -343,15 +343,14 @@ STAYED = [               # you summoned the exit, then chose to stay
     "The flinch passed. You are still here. Continue.",
     "Wise. The way out was never worth the hour it would cost you.",
 ]
-SURRENDER_LEN = 200      # characters you must type exactly to leave (5x harder)
+SURRENDER_LEN = 3        # digits in the random code you must type to leave (re-rolled every time)
 SURRENDER_WAIT = 300     # seconds you must wait first (5 minutes, 5x harder)
 SURRENDER_CLICKS = 50    # clicks on her line to summon the way out (5x harder)
 
 
 def surrender_phrase():
-    import string
-    pool = string.ascii_letters + string.digits
-    return "".join(random.choice(pool) for _ in range(SURRENDER_LEN))
+    """A fresh random digit code (e.g. 272, 100, 007). New one every time it is asked."""
+    return "".join(random.choice("0123456789") for _ in range(SURRENDER_LEN))
 
 
 GLYPHS = "01#%&*+=<>/\\|"
@@ -2167,7 +2166,9 @@ class App:
         self.exit_lbl.pack(pady=(0, S(8)))
         self.exit_entry = tk.Entry(self.exit_box, bg=SURFACE, fg=FG, insertbackground=ACCENT_HI,
                                    relief="flat", highlightthickness=1, highlightbackground=LINE,
-                                   highlightcolor=ACCENT, font=(MONO, 10), justify="center")
+                                   highlightcolor=ACCENT, font=(MONO, 16), justify="center",
+                                   validate="key", validatecommand=(
+                                       self.root.register(lambda t: digits_only(t, SURRENDER_LEN)), "%P"))
         self._erow = tk.Frame(self.exit_box, bg=BG)
         erow = self._erow
         erow.pack()
@@ -2322,7 +2323,7 @@ class App:
     def _surrender_to_type(self):
         self._surr_state = "type"
         self._surr_phrase = surrender_phrase()
-        self.exit_lbl.config(text="type this, exactly, to be let go:\n\n%s" % self._surr_phrase)
+        self.exit_lbl.config(text="type this number, exactly, to be let go:\n\n%s" % self._surr_phrase)
         self.exit_entry.delete(0, "end")
         self.exit_entry.pack(fill="x", padx=S(20), pady=(0, S(10)), before=self._erow)
         self.exit_entry.focus_set()
@@ -2338,7 +2339,7 @@ class App:
         else:
             self._surr_phrase = surrender_phrase()
             self.exit_entry.delete(0, "end")
-            self.exit_lbl.config(text="type this, exactly, to be let go:\n\n%s" % self._surr_phrase)
+            self.exit_lbl.config(text="type this number, exactly, to be let go:\n\n%s" % self._surr_phrase)
             self.oracle.say_from(SCORN)
 
     def _surrender_cancel(self):
