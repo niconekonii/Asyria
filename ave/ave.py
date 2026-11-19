@@ -97,6 +97,7 @@ SEAL = {
     "taskmgr.exe": "the Task Manager", "cmd.exe": "the Command Prompt",
     "powershell.exe": "PowerShell", "pwsh.exe": "PowerShell",
     "powershell_ise.exe": "PowerShell", "wt.exe": "the terminal",
+    "windowsterminal.exe": "the terminal",     # Win11's Terminal (Start, Win+X) runs as this
     "conemu.exe": "the terminal", "conemu64.exe": "the terminal",
     "taskkill.exe": "taskkill", "tskill.exe": "tskill", "wmic.exe": "WMIC",
     "mmc.exe": "the console", "schtasks.exe": "the scheduler",
@@ -696,6 +697,16 @@ def newest_exe():
     return max(cands, key=lambda p: (parse_ver(copy_version(p)), -cands.index(p)))
 
 
+def strip_motw(path):
+    """Remove the 'downloaded from the internet' mark (Zone.Identifier) from one of Ave's own
+    copies, so SmartScreen does not warn again when the installed copy starts from Start."""
+    if IS_WIN and path:
+        try:
+            os.remove(path + ":Zone.Identifier")
+        except OSError:
+            pass
+
+
 def _refresh_copy(dest):
     """Make the hidden copy `dest` this exact version. Decided by VERSION, not file dates
     (dates once let an old Ave linger here and come back after a restart). Never downgrades
@@ -708,6 +719,7 @@ def _refresh_copy(dest):
         if not have or parse_ver(have) < parse_ver(VERSION):
             shutil.copy2(SELF, dest + ".part")
             os.replace(dest + ".part", dest)
+            strip_motw(dest)
             stamps = load_json(COPIES, {}) or {}
             stamps[os.path.basename(dest).lower()] = {"v": VERSION, "size": os.path.getsize(dest)}
             save_json(COPIES, stamps)
@@ -1059,6 +1071,82 @@ def hosts_has_block():
         return False
 
 
+FF_KEY = r"SOFTWARE\Policies\Mozilla\Firefox"
+FF_DOH = FF_KEY + r"\DNSOverHTTPS"
+FF_MARK = "ff_doh"          # value under HKCU\Software\Ave: set only when Ave created the policy
+
+
+def _reg_empty(winreg, path):
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, path) as k:
+            sub, vals, _ = winreg.QueryInfoKey(k)
+        return sub == 0 and vals == 0
+    except OSError:
+        return False
+
+
+def ff_doh_off():
+    """Firefox's secure DNS (DNS over HTTPS) can skip the hosts file, so blocked sites would still
+    open. During focus (admin) a Firefox policy turns it off; Firefox applies it when it (re)starts.
+    Only created if the user has no DoH policy of their own; ff_doh_restore() removes exactly it."""
+    if not (IS_WIN and is_admin()):
+        return
+    try:
+        import winreg
+        try:
+            winreg.CloseKey(winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, FF_DOH))
+            return                                   # already there (theirs, or ours from a heal)
+        except OSError:
+            pass
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, REG_APP) as m:
+            winreg.SetValueEx(m, FF_MARK, 0, winreg.REG_DWORD, 1)    # mark first: never orphan it
+        with winreg.CreateKeyEx(winreg.HKEY_LOCAL_MACHINE, FF_DOH, 0,
+                                winreg.KEY_SET_VALUE | winreg.KEY_WOW64_64KEY) as k:
+            winreg.SetValueEx(k, "Enabled", 0, winreg.REG_DWORD, 0)
+            winreg.SetValueEx(k, "Locked", 0, winreg.REG_DWORD, 1)
+    except Exception:
+        pass
+
+
+def ff_doh_restore():
+    """Remove the Firefox policy Ave added (and the empty keys above it). True when nothing of
+    Ave's is left. Never touches a policy Ave did not create."""
+    if not IS_WIN:
+        return True
+    try:
+        import winreg
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_APP) as m:
+                ours = winreg.QueryValueEx(m, FF_MARK)[0] == 1
+        except OSError:
+            ours = False
+        if not ours:
+            return True
+        try:
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, FF_DOH, 0,
+                                winreg.KEY_ALL_ACCESS | winreg.KEY_WOW64_64KEY) as k:
+                for v in ("Enabled", "Locked"):
+                    try:
+                        winreg.DeleteValue(k, v)
+                    except OSError:
+                        pass
+        except FileNotFoundError:
+            pass
+        for path in (FF_DOH, FF_KEY, r"SOFTWARE\Policies\Mozilla"):
+            if _reg_empty(winreg, path):
+                winreg.DeleteKey(winreg.HKEY_LOCAL_MACHINE, path)
+        try:
+            winreg.CloseKey(winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, FF_DOH))
+            return False                              # still there: retry later (needs admin)
+        except OSError:
+            pass
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_APP, 0, winreg.KEY_SET_VALUE) as m:
+            winreg.DeleteValue(m, FF_MARK)
+        return True
+    except Exception:
+        return False
+
+
 def hosts_block(sites):
     if not (IS_WIN and sites):
         return False
@@ -1081,15 +1169,18 @@ def hosts_block(sites):
         with open(HOSTS, "w", encoding="utf-8") as f:
             f.write(text + "\n".join(lines) + "\n")
         _flush_dns()
+        ff_doh_off()
         return True
     except Exception:
         return False
 
 
 def hosts_unblock():
-    """True when the hosts file has no Ave section left."""
+    """True when the hosts file has no Ave section left (and Ave's Firefox policy is gone)."""
     if not IS_WIN:
         return True
+    if not ff_doh_restore():
+        return False
     try:
         with open(HOSTS, "r", encoding="utf-8", errors="ignore") as f:
             text = f.read()
@@ -1144,19 +1235,82 @@ def ifeo_unblock(exes):
     return ok
 
 
-def guard_install():
-    """Scheduled task that relaunches Ave every minute while a session runs."""
-    if not IS_WIN:
-        return False
-    exe, base = launch_parts()
-    tr = ('"%s" %s --guard' % (exe, base)).replace("  ", " ")
-    cmd = ["schtasks", "/Create", "/TN", TASK, "/TR", tr, "/SC", "MINUTE", "/MO", "1", "/F"]
-    if is_admin():
+def task_xml(exe, args, admin):
+    """The guard task as Task Scheduler XML. Plain `schtasks /SC MINUTE` inherits Windows defaults
+    that break a guard: no start on battery, killed when a laptop unplugs, Below Normal priority,
+    a 72 h limit, and 'ignore new starts while the first copy runs' (so no takeover of a hung Ave).
+    This sets every one of them, and adds a logon trigger (Win11 can switch Run-key apps off)."""
+    from xml.sax.saxutils import escape
+    dom, user = os.environ.get("USERDOMAIN", ""), os.environ.get("USERNAME", "")
+    uid = escape(("%s\\%s" % (dom, user)) if dom else user)
+    return (
+        '<?xml version="1.0" encoding="UTF-16"?>\n'
+        '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">\n'
+        ' <RegistrationInfo><Description>Ave: keeps a running focus session alive. '
+        'Removed when the session ends.</Description></RegistrationInfo>\n'
+        ' <Triggers>\n'
+        '  <TimeTrigger><Repetition><Interval>PT1M</Interval><StopAtDurationEnd>false</StopAtDurationEnd>'
+        '</Repetition><StartBoundary>2000-01-01T00:00:00</StartBoundary><Enabled>true</Enabled></TimeTrigger>\n'
+        '  <LogonTrigger><Enabled>true</Enabled><UserId>%s</UserId></LogonTrigger>\n'
+        ' </Triggers>\n'
+        ' <Principals><Principal id="Author"><UserId>%s</UserId><LogonType>InteractiveToken</LogonType>'
+        '<RunLevel>%s</RunLevel></Principal></Principals>\n'
+        ' <Settings>\n'
+        '  <MultipleInstancesPolicy>Parallel</MultipleInstancesPolicy>\n'
+        '  <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>\n'
+        '  <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>\n'
+        '  <AllowHardTerminate>false</AllowHardTerminate>\n'
+        '  <StartWhenAvailable>true</StartWhenAvailable>\n'
+        '  <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>\n'
+        '  <IdleSettings><StopOnIdleEnd>false</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings>\n'
+        '  <AllowStartOnDemand>true</AllowStartOnDemand>\n'
+        '  <Enabled>true</Enabled>\n'
+        '  <Hidden>false</Hidden>\n'
+        '  <RunOnlyIfIdle>false</RunOnlyIfIdle>\n'
+        '  <WakeToRun>false</WakeToRun>\n'
+        '  <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>\n'
+        '  <Priority>5</Priority>\n'
+        ' </Settings>\n'
+        ' <Actions Context="Author"><Exec><Command>%s</Command><Arguments>%s</Arguments></Exec></Actions>\n'
+        '</Task>\n') % (uid, uid, "HighestAvailable" if admin else "LeastPrivilege",
+                         escape(exe), escape(args))
+
+
+def task_create(name, exe, args):
+    """Register a guard task from XML; if Windows refuses the XML, fall back to plain schtasks."""
+    admin = is_admin()
+    xml = os.path.join(DATA, "guard.xml")
+    try:
+        os.makedirs(DATA, exist_ok=True)
+        with open(xml, "w", encoding="utf-16") as f:
+            f.write(task_xml(exe, args, admin))
+        r = subprocess.run(["schtasks", "/Create", "/TN", name, "/XML", xml, "/F"],
+                           capture_output=True, creationflags=NOWIN)
+        if r.returncode == 0:
+            return True
+    except Exception:
+        pass
+    finally:
+        try:
+            os.remove(xml)
+        except OSError:
+            pass
+    tr = ('"%s" %s' % (exe, args)).strip()
+    cmd = ["schtasks", "/Create", "/TN", name, "/TR", tr, "/SC", "MINUTE", "/MO", "1", "/F"]
+    if admin:
         cmd += ["/RL", "HIGHEST"]
     try:
         return subprocess.run(cmd, capture_output=True, creationflags=NOWIN).returncode == 0
     except Exception:
         return False
+
+
+def guard_install():
+    """Scheduled task that relaunches Ave every minute (and at logon) while a session runs."""
+    if not IS_WIN:
+        return False
+    exe, base = launch_parts()
+    return task_create(TASK, exe, (base + " --guard").strip())
 
 
 def guard_exists():
@@ -1863,6 +2017,7 @@ def install_self():
             shutil.copy2(SELF, INSTALL_EXE + ".part")
             os.replace(INSTALL_EXE + ".part", INSTALL_EXE)
             have = VERSION
+        strip_motw(INSTALL_EXE)
         register_install(have)
         return os.path.exists(INSTALL_EXE)
     except Exception:
@@ -2198,6 +2353,68 @@ def selftest_shell(out):
         lines.append("tray: FAIL %r" % (e,))
         bad = True
     lines.append("app id: %s" % ("set" if IS_WIN else "skip"))
+    # guard task from XML: registered, and Windows kept our settings
+    name = "AveSelftestTask"
+    try:
+        made = task_create(name, SELF, "--selftest")
+        q = subprocess.run(["schtasks", "/Query", "/TN", name, "/XML"], capture_output=True,
+                           creationflags=NOWIN)
+        x = q.stdout.decode("utf-16", "ignore") if q.stdout[:2] in (b"\xff\xfe", b"\xfe\xff") \
+            else q.stdout.decode("utf-8", "ignore")
+        want = ("<DisallowStartIfOnBatteries>false", "<StopIfGoingOnBatteries>false",
+                "<Priority>5", "<MultipleInstancesPolicy>Parallel", "<LogonTrigger",
+                "<Interval>PT1M", "<ExecutionTimeLimit>PT0S")
+        miss = [w for w in want if w not in x]
+        lines.append("guard task xml: %s%s" % ("ok" if made and not miss else "FAIL",
+                                               (" missing " + ", ".join(miss)) if miss else ""))
+        bad |= not made or bool(miss)
+        subprocess.run(["schtasks", "/Delete", "/TN", name, "/F"], capture_output=True,
+                       creationflags=NOWIN)
+    except Exception as e:
+        lines.append("guard task xml: FAIL %r" % (e,))
+        bad = True
+    # mark of the web: copy2 carries it? strip_motw removes it
+    try:
+        a, b = os.path.join(d, "motw_a.exe"), os.path.join(d, "motw_b.exe")
+        with open(a, "wb") as f:
+            f.write(b"x")
+        with open(a + ":Zone.Identifier", "w") as f:
+            f.write("[ZoneTransfer]\nZoneId=3\n")
+        shutil.copy2(a, b)
+        carried = os.path.exists(b + ":Zone.Identifier")
+        strip_motw(b)
+        gone = not os.path.exists(b + ":Zone.Identifier")
+        lines.append("motw: copy carries mark=%s, stripped=%s" % (carried, gone))
+        bad |= not gone
+    except Exception as e:
+        lines.append("motw: FAIL %r" % (e,))
+        bad = True
+    # the IFEO launch block points blocked games at this harmless stub: it must exist
+    stub = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", IFEO_DEBUGGER)
+    lines.append("ifeo stub %s: %s" % (IFEO_DEBUGGER, "present" if os.path.exists(stub) else "MISSING"))
+    bad |= not os.path.exists(stub)
+    # Firefox DoH policy: on, then fully removed
+    try:
+        import winreg
+
+        def there():
+            try:
+                with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, FF_DOH) as k:
+                    return winreg.QueryValueEx(k, "Enabled")[0] == 0
+            except OSError:
+                return False
+        if there():
+            lines.append("firefox doh policy: skipped (runner already has one)")
+        else:
+            ff_doh_off()
+            on = there()
+            ok = ff_doh_restore()
+            off = not there()
+            lines.append("firefox doh policy: set=%s removed=%s clean=%s" % (on, off, ok))
+            bad |= not (on and off and ok)
+    except Exception as e:
+        lines.append("firefox doh policy: FAIL %r" % (e,))
+        bad = True
     with open(out, "w") as f:
         f.write("\n".join(lines) + "\n")
     sys.exit(1 if bad else 0)
@@ -2245,6 +2462,11 @@ def dark_titlebar(win):
         for attr in (20, 19):   # DWMWA_USE_IMMERSIVE_DARK_MODE (new, old)
             if ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, attr, ctypes.byref(v), 4) == 0:
                 break
+        # Windows 11: paint the title bar and frame matte to match (Windows 10 ignores these)
+        for attr, col in ((35, BG), (34, LINE), (36, FG)):   # CAPTION, BORDER, TEXT colour
+            r, g, b = _rgb(col)
+            c = ctypes.c_uint32(r | (g << 8) | (b << 16))       # COLORREF = 0x00BBGGRR
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, attr, ctypes.byref(c), 4)
     except Exception:
         pass
 

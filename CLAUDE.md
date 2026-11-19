@@ -104,7 +104,7 @@ Top to bottom:
   hidden spare exe `DATA\bin\Ave.exe`), hosts markers `# Ave begin/end`, IFEO key,
   task name `AveGuard`, watcher mutex `AveWatcher` + `watch.pid` + `AveGuard.exe` copy, `PROTECTED` (never
   killed), `SEAL` (every kill/inspect tool closed on sight during focus: Task Manager, cmd, PowerShell, wt,
-  taskkill, wmic, mmc, schtasks, regedit, common process killers), `ALIASES` (extra domains per site), palette
+  taskkill, wmic, mmc, schtasks, regedit, WindowsTerminal, common process killers), `ALIASES` (extra domains per site), palette
   (`BG #222222`, `SURFACE`/`SURFACE2`/`SURFACE3`, `ACCENT` red, `DIM`/`FAINT`/`LINE` matte dark red,
   `ACCENT_DIM`, `ACCENT_FG`, `RING_TRACK`, `HER #a9b9d0`, `SCAN`/`TICK`/`TICK_HI` for the console), `TYPE_SPEED`.
   Install: `INSTALL_DIR = %LOCALAPPDATA%\Programs\Ave`, `INSTALL_EXE`, `START_LNK` (Start menu), `UNINST_KEY`
@@ -126,8 +126,10 @@ Top to bottom:
   Files roots, user home and its direct children, AppData roots, Ave's own folder).
 - **Blockers** (all return bool, never raise): `hosts_block/unblock` (0.0.0.0 + `::`,
   www./m./aliases, flushdns), `ifeo_block/unblock` (Debugger=`systray.exe`, only removes
-  its own value), `guard_install/exists/remove` (schtasks every 1 min, `/RL HIGHEST` if
-  admin, runs `--guard`), `autostart(on)` (HKCU Run, `--guard`), `lift_all()`.
+  its own value), `guard_install/exists/remove` (`task_xml()` + `task_create()`: registered from XML every 1 min
+  + at logon, battery conditions off, priority 5, Parallel instances, no time limit, HighestAvailable if admin;
+  falls back to plain schtasks; runs `--guard`), `ff_doh_off/restore` (Firefox DoH policy during focus, only
+  Ave's own, marker `HKCU\Software\Ave\ff_doh`; called from hosts_block/unblock), `strip_motw()`, `autostart(on)` (HKCU Run, `--guard`), `lift_all()`.
 - **Watchdog pair:** `wait_proc()` (WaitForSingleObject on a pid), `spawn_watcher()`/`watcher_running()`
   (one hidden `--watch` copy named `AveGuard.exe` so one `taskkill /im Ave.exe` misses it, mutex-guarded), `run_watcher()` (relaunches the main Ave ~1-3 s after it is killed, or after it is suspended > 60 s, while
   `state.active`; via `relaunch_main()`/`ensure_watch_copy()`), `watch_decide()` (pure policy), `kill_watcher()`. Layered under the
@@ -244,6 +246,8 @@ change): still add a log entry, titled `## docs — YYYY-MM-DD — title`, and p
 Known gaps (code that has never run on a real Windows PC) are listed in `NOTES.md`.
 Deliberately open: Task Manager, cmd/PowerShell, other devices/accounts, Safe Mode,
 browser games on unlisted sites. Anti-cheat games may dislike IFEO.
+Windows 11 Smart App Control blocks the unsigned exe outright (needs code signing; nothing in-app).
+The Windows 11 audit procedure is `MASTER_PROMPT.md` §5l.
 Defender may flag the unsigned PyInstaller exe: user excludes `%LOCALAPPDATA%\Ave` and
 `%LOCALAPPDATA%\Programs\Ave` (the installed copy).
 

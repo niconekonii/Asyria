@@ -11,6 +11,9 @@ Right-click it there > **Pin to taskbar** / **Pin to Start**. You can delete the
 
 - **Tray:** Ave sits behind the taskbar's **^** arrow. Click it to open. Right-click > **quit** to close it
   (not offered during a session). With no session running, the window's **X** hides Ave to the tray.
+- **Windows 11:** new tray icons hide behind the ^ arrow. To keep mine always visible: Settings >
+  Personalization > Taskbar > Other system tray icons > Ave: On. If **Smart App Control** is on, Windows
+  blocks unsigned apps like Ave with no "Run anyway" (Windows Security > App & browser control).
 - **Uninstall:** Settings > Apps > Installed apps > Ave > Uninstall. Refused while a session runs.
 
 If Defender complains, exclude **both** folders: `%LOCALAPPDATA%\Programs\Ave` and `%LOCALAPPDATA%\Ave`

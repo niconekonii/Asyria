@@ -3,6 +3,40 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## v4.0.? — 2026-11-19 — Windows 11 audit: guard task fixed, Firefox gap closed, matte title bar
+- **Guard task fixed (real bug).** It was made with plain `schtasks /SC MINUTE`, which inherits Windows
+  defaults: it **never started on battery**, **was killed the moment a laptop unplugged**, ran at **Below
+  Normal** priority, had a 72 h limit, and **ignored new starts while its first copy ran** (so it could
+  not replace a hung Ave). It is now registered from XML with all of that switched off, plus a **logon
+  trigger** (Windows 11 lets you switch Run-key apps off in Settings > Apps > Startup). Falls back to the
+  old command if Windows ever refuses the XML.
+- **Firefox gap closed.** Firefox's secure DNS (DNS over HTTPS) can skip the hosts file, so "blocked"
+  sites could still open in Firefox. During focus (admin) Ave sets a Firefox policy that turns it off;
+  Firefox picks it up when it (re)starts. Removed again with the blocks (breaks, session end, self-heal),
+  and only if Ave created it - your own Firefox policies are never touched.
+- **Windows Terminal sealed on Windows 11.** From Start or Win+X it runs as `WindowsTerminal.exe`, not
+  `wt.exe`, so it slipped past the seal.
+- **No second SmartScreen warning.** The installed copy and the hidden spares lose the "downloaded from
+  the internet" mark (Zone.Identifier), so starting Ave from Start does not warn again.
+- **QoL: matte Windows 11 title bar** - caption `#222222`, frame `LINE`, text off-white (Windows 10 keeps
+  the dark bar it had).
+- The Windows 11 audit itself is now a standing prompt in `MASTER_PROMPT.md` §5l (research, walk the
+  code, fix, prove on CI, report).
+- Internals: `task_xml()`, `task_create()` (XML -> `schtasks /XML`, fallback), `guard_install()` uses it;
+  `ff_doh_off()`/`ff_doh_restore()` (+ `FF_KEY`, `FF_DOH`, marker `HKCU\Software\Ave\ff_doh`), called from
+  `hosts_block()`/`hosts_unblock()`; `strip_motw()`; `SEAL += windowsterminal.exe`; `dark_titlebar()`
+  sets DWM attributes 34/35/36. `selftest_shell` checks the task XML, MOTW, the IFEO stub and the
+  Firefox policy round trip on the CI runner.
+- Tested: pyflakes; task XML parses (escaping checked with `&` and `\` in names); Linux suites still
+  21/21 (tray) and 17/17 (stale copies); Firefox/task code are no-ops off Windows. Windows CI: see the
+  shell self-test step of this build.
+- Not tested (needs your PC): the guard task on battery / after unplugging / at logon; Firefox really
+  refusing blocked sites after a restart of Firefox; the Win11 title bar colours; Terminal being closed.
+- Cannot be fixed from inside Ave: **Smart App Control** (Windows 11) blocks unsigned apps with no "Run
+  anyway" - if it's on, Ave can't run without a code-signing certificate. A browser tab already
+  connected to a site may keep working until it reconnects. Taskbar "End task" (a developer setting)
+  kills Ave like Task Manager; the watchdog brings it back.
+
 ## v4.0.40 — 2026-11-19 — Installable (Start, pin, tray, icon) + restart no longer brings back an old Ave
 - **Fix: after a PC restart an old Ave came back.** The restart guard (task + login entry) starts the
   hidden spare `%LOCALAPPDATA%\Ave\bin\Ave.exe`. That spare was refreshed by *file date*, not version

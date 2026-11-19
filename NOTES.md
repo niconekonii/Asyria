@@ -27,7 +27,9 @@ the ±1 timer buttons, the new fonts and effects, the message bank shuffle, the 
 Typed minutes in the ring, the new start/end sounds.
 Matte update: the matte colours and fonts on a real screen, the wordmark cursor, ending a break early
 (blocks coming back on a real PC).
-Restart fix: that a mid-session restart brings back the current version (newest-copy relaunch, versioned
+Windows 11 audit: the XML guard task on battery / unplugging / at logon, the Firefox DoH policy taking effect
+after Firefox restarts, the matte Win11 title bar, WindowsTerminal.exe being closed during focus.
+ that a mid-session restart brings back the current version (newest-copy relaunch, versioned
 spares, stale hand-off), and the hand-off from an old download.
 the first-run self-install and hand-off to the installed copy, the Start menu entry and
 pinning, taskbar grouping of relaunched copies (one app id), the tray icon/menu/hover text with a real Explorer

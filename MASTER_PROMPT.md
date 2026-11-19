@@ -43,6 +43,42 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 3. New start sound (minor, rising) and a different end sound (major, falling).
 4. Purpose: also tests the update restart fix (v4.0.13 → this release should restart by itself).
 
+## 5l. Windows 11 audit (the user's brief, as a standing prompt)
+> "Research Windows 11 scripting for this whole project and double-check that everything SHOULD work
+> okay in a Windows 11 environment as an app. Fix bugs and add quality-of-life touches."
+
+How to run this audit (repeat it whenever Windows-facing code changes):
+1. **Research first, from primary sources** (Microsoft Learn, Mozilla/Chromium docs): how Windows 11
+   treats every OS feature Ave touches - Task Scheduler defaults, Run key + Settings > Apps > Startup,
+   hosts file vs browser secure DNS, IFEO, UAC/elevation, SmartScreen + Smart App Control + Mark of
+   the Web, Start menu shortcuts + pinning + AppUserModelID, tray overflow, DWM title bar, DPI, Windows
+   Terminal as the default console, taskbar "End task".
+2. **Walk ave.py top to bottom against that list.** For each OS call: does it still exist on Win11
+   (22H2-25H2)? Does a Win11 default silently change its behaviour? Does it fail safe?
+3. **Fix what is wrong**, smallest change first. Never weaken rule 3 (no way out) or rule 4 (nothing
+   stays blocked). Anything new that blocks must be lifted by `lift_all`/session end.
+4. **Prove what can be proven** on the CI Windows runner (`--selftest-shell`): add a check for every
+   fix that touches an OS API. Linux: pyflakes + Xvfb suites.
+5. **QoL** only where Win11 offers it cheaply and it fits the matte look.
+6. **Report honestly**: what was fixed, what CI proved, what only a real PC can prove, and what cannot
+   be fixed from inside the app (e.g. Smart App Control needs a code-signing certificate).
+
+Findings of the first audit (2026-11-19) - see DEVLOG for the shipped result:
+- Guard task (schtasks /SC MINUTE) inherited Windows defaults: **won't start on battery, is killed when
+  a laptop unplugs, runs at Below Normal priority (7), and ignores new starts while its first copy runs
+  (IgnoreNew) - so no takeover of a hung Ave**. Fix: register it from XML (battery off, priority 5,
+  Parallel, no time limit) + a logon trigger (Win11 Settings > Startup can switch the Run key off).
+- **Mark of the Web** is copied onto the installed copy/spares -> SmartScreen could warn again from
+  Start. Fix: strip `Zone.Identifier` from Ave's own copies.
+- **Windows Terminal** on Win11 runs as `WindowsTerminal.exe` (Start/Win+X), not `wt.exe`. Fix: sealed.
+- **Firefox secure DNS (DoH)** can bypass the hosts file. Fix: during focus (admin), a Firefox policy
+  turns DoH off; removed again with the blocks (only what Ave created). Chrome/Edge are believed to check hosts first
+  (not verified).
+- QoL: Win11 title bar painted matte (`#222222` caption, `LINE` border).
+- Cannot fix in-app: Smart App Control blocks unsigned apps outright (no "Run anyway"); a browser tab
+  already connected to a site may keep working until it reconnects; taskbar "End task" (dev setting)
+  kills Ave like Task Manager - the watchdog brings it back.
+
 ## 5k. Installable + restart fix (SHIPPED as v4.0.40)
 - Self-install on first run to `%LOCALAPPDATA%\Programs\Ave` + Start menu shortcut (runas, app id) + Installed
   apps entry with an uninstaller that refuses during a session. Pin from Start (Windows forbids self-pinning).
