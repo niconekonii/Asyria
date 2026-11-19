@@ -43,7 +43,7 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 3. New start sound (minor, rising) and a different end sound (major, falling).
 4. Purpose: also tests the update restart fix (v4.0.13 → this release should restart by itself).
 
-## 5k. Installable (BUILT, awaiting release tag)
+## 5k. Installable + restart fix (SHIPPED as v4.0.40)
 - Self-install on first run to `%LOCALAPPDATA%\Programs\Ave` + Start menu shortcut (runas, app id) + Installed
   apps entry with an uninstaller that refuses during a session. Pin from Start (Windows forbids self-pinning).
 - One taskbar app id for every copy. Tray icon: click = open, menu open/quit (quit greyed during a session),

@@ -3,7 +3,7 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
-## v4.0.? — 2026-11-19 — Installable (Start, pin, tray, icon) + restart no longer brings back an old Ave
+## v4.0.40 — 2026-11-19 — Installable (Start, pin, tray, icon) + restart no longer brings back an old Ave
 - **Fix: after a PC restart an old Ave came back.** The restart guard (task + login entry) starts the
   hidden spare `%LOCALAPPDATA%\Ave\bin\Ave.exe`. That spare was refreshed by *file date*, not version
   (`copy2` keeps dates; an old Ave run later could also win on date), so it could stay a past version —
