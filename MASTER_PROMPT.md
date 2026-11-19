@@ -43,11 +43,11 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 3. New start sound (minor, rising) and a different end sound (major, falling).
 4. Purpose: also tests the update restart fix (v4.0.13 → this release should restart by itself).
 
-## 5g. Ordeal 5x harder (BUILT, release pending)
+## 5g. Ordeal 5x harder (SHIPPED as v4.0.26)
 - The surrender ordeal's three dials x5: 50 clicks to summon, 300 s (5 min) wait, 200-char passphrase.
   Still the only way out; no command line.
 
-## 5f. Remove --cleanup (BUILT, release pending)
+## 5f. Remove --cleanup (SHIPPED as v4.0.24)
 - The `--cleanup` escape command is removed (user's call, net included). The surrender ordeal is the only
   way out of a running session. Blocks still lift on normal session end; internal self-heal stays (fires only
   when no session is active). CI smoke test uses a new build-only `--selftest`. Hard rule §4 updated.
