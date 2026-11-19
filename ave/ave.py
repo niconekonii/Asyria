@@ -343,9 +343,9 @@ STAYED = [               # you summoned the exit, then chose to stay
     "The flinch passed. You are still here. Continue.",
     "Wise. The way out was never worth the hour it would cost you.",
 ]
-SURRENDER_LEN = 40       # characters you must type exactly to leave
-SURRENDER_WAIT = 60      # seconds you must wait first
-SURRENDER_CLICKS = 10    # clicks on her line to summon the way out
+SURRENDER_LEN = 200      # characters you must type exactly to leave (5x harder)
+SURRENDER_WAIT = 300     # seconds you must wait first (5 minutes, 5x harder)
+SURRENDER_CLICKS = 50    # clicks on her line to summon the way out (5x harder)
 
 
 def surrender_phrase():
@@ -2162,8 +2162,8 @@ class App:
 
         # The one way out: hidden until summoned by clicking her line SURRENDER_CLICKS times.
         self.exit_box = tk.Frame(f, bg=BG)
-        self.exit_lbl = tk.Label(self.exit_box, text="", bg=BG, fg=DIM, font=(MONO, 9),
-                                 wraplength=S(360), justify="center")
+        self.exit_lbl = tk.Label(self.exit_box, text="", bg=BG, fg=DIM, font=(MONO, 8),
+                                 wraplength=S(380), justify="center")
         self.exit_lbl.pack(pady=(0, S(8)))
         self.exit_entry = tk.Entry(self.exit_box, bg=SURFACE, fg=FG, insertbackground=ACCENT_HI,
                                    relief="flat", highlightthickness=1, highlightbackground=LINE,

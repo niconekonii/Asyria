@@ -3,6 +3,20 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## v4.0.? — 2026-11-19 — The surrender ordeal, 5x harder
+- You asked for five times the cruelty on the one way out. Every dial turned:
+  - Clicks to summon it: 10 -> **50**.
+  - The forced wait: 60 s -> **300 s (five minutes)**.
+  - The passphrase: 40 -> **200 characters**, typed exactly (a wrong character still just regenerates it,
+    no re-wait).
+- Still the only way out of a running session — no command line, no `--cleanup`. The phrase label shrank a
+  touch so 200 characters fit on the glass.
+- Internals: `SURRENDER_CLICKS/WAIT/LEN` constants bumped; exit label font `MONO 8`, wrap `S(380)`.
+- Tested: pyflakes; Xvfb ordeal test (15 checks) re-run against the new constants — 49 clicks don't summon,
+  50 do, the 300 s wait gate, a 200-char phrase, wrong phrase regenerates + scorns, correct ends the session,
+  stay cancels. Screenshot of the 200-char type stage reviewed (fits, buttons visible). Earlier suites pass.
+- Not tested: the real 5-minute wait and typing 200 characters on a real Windows PC.
+
 ## v4.0.? — 2026-11-19 — Remove the --cleanup escape command
 - **The `--cleanup` kill switch is gone.** It could end a live session from outside (a bypass of the
   surrender ordeal) and was the manual recovery command. Removed by your call, net included: the in-app
