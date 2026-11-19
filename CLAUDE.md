@@ -149,7 +149,7 @@ Top to bottom:
   - Programs: manual box (`add_manual`: `name` or `name.exe`), Browse, Running, Remove.
   - The one way out (`exit_box` on the run screen): `_her_click` counts 10 clicks -> `_surrender_begin`
     -> `_tick` (60 s wait) -> `_to_type` (random 40-char phrase) -> `_check` (wrong = regenerate + SCORN;
-    right = `_commit` -> `Session.finish`) / `_cancel` (STAYED). Constants `SURRENDER_CLICKS=50`, `WAIT=300 s`, `LEN=3` (a random 3-digit code, re-rolled each time).
+    right = `_commit` -> `Session.finish`) / `_cancel` (STAYED). The 3-digit code (`LEN=3`) is shown only for `SURRENDER_FLASH=10 s` at the start (`_enter_wait`), then hidden through the wait and the typing — entered from memory; a wrong guess re-flashes a new code. Constants `SURRENDER_CLICKS=50`, `WAIT=300 s`.
   Loops: `_loop` 1 s UI and countdown, `_poll` 2 s enforce, `_heal` 30 s.
 - **Oblivionis lines:** `IDLE, FOCUS, CAUGHT, SEALED, RETURNED, BREAK, DONE, REFUSE` (original
   + 15 each), `BREAK_CUT` (10), `SURRENDER`/`SCORN`/`RELENT`/`STAYED` (the way-out ordeal). Break lines never name a number of minutes (the

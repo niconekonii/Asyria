@@ -346,6 +346,7 @@ STAYED = [               # you summoned the exit, then chose to stay
 SURRENDER_LEN = 3        # digits in the random code you must type to leave (re-rolled every time)
 SURRENDER_WAIT = 300     # seconds you must wait first (5 minutes, 5x harder)
 SURRENDER_CLICKS = 50    # clicks on her line to summon the way out (5x harder)
+SURRENDER_FLASH = 10     # seconds the code is shown at the start, then it vanishes
 
 
 def surrender_phrase():
@@ -2161,7 +2162,7 @@ class App:
 
         # The one way out: hidden until summoned by clicking her line SURRENDER_CLICKS times.
         self.exit_box = tk.Frame(f, bg=BG)
-        self.exit_lbl = tk.Label(self.exit_box, text="", bg=BG, fg=DIM, font=(MONO, 8),
+        self.exit_lbl = tk.Label(self.exit_box, text="", bg=BG, fg=DIM, font=(MONO, 10),
                                  wraplength=S(380), justify="center")
         self.exit_lbl.pack(pady=(0, S(8)))
         self.exit_entry = tk.Entry(self.exit_box, bg=SURFACE, fg=FG, insertbackground=ACCENT_HI,
@@ -2179,6 +2180,7 @@ class App:
         self._surr_state = None
         self._surr_phrase = ""
         self._surr_deadline = 0
+        self._surr_show_until = 0
         self._surr_job = None
         self._exit_clicks = 0
         self._exit_click_t = 0
@@ -2297,9 +2299,19 @@ class App:
             self.oracle.say(bank_line())
 
     # ------------------------------------------------- the one way out (the ordeal)
-    def _surrender_begin(self):
+    def _enter_wait(self, seconds):
         self._surr_state = "wait"
-        self._surr_deadline = time.monotonic() + SURRENDER_WAIT
+        now = time.monotonic()
+        self._surr_deadline = now + seconds
+        self._surr_show_until = now + SURRENDER_FLASH   # the code is visible only this long
+        self.exit_entry.pack_forget()
+        self.exit_give.command = None
+        self.exit_give.set_text("wait")
+        self.exit_give.paint()
+
+    def _surrender_begin(self):
+        self._surr_phrase = surrender_phrase()          # rolled now, shown only for a breath
+        self._enter_wait(SURRENDER_WAIT)
         self.break_btn.pack_forget()
         self.exit_box.pack(pady=(S(18), 0))
         self.exit_entry.pack_forget()
@@ -2313,17 +2325,20 @@ class App:
     def _surrender_tick(self):
         if self._surr_state != "wait":
             return
-        left = int(round(self._surr_deadline - time.monotonic()))
+        now = time.monotonic()
+        left = int(round(self._surr_deadline - now))
         if left > 0:
-            self.exit_lbl.config(text="the mask will not come off for %d seconds.\nsit here. do not look away." % left)
+            if now < self._surr_show_until:
+                self.exit_lbl.config(text="memorise this number. it vanishes in a moment:\n\n%s" % self._surr_phrase)
+            else:
+                self.exit_lbl.config(text="hold it in your head. the mask comes off in %d seconds,\nand there will be nothing left to read." % left)
             self._surr_job = self.root.after(250, self._surrender_tick)
         else:
             self._surrender_to_type()
 
     def _surrender_to_type(self):
         self._surr_state = "type"
-        self._surr_phrase = surrender_phrase()
-        self.exit_lbl.config(text="type this number, exactly, to be let go:\n\n%s" % self._surr_phrase)
+        self.exit_lbl.config(text="type the number you were given.\nnothing here will remind you.")
         self.exit_entry.delete(0, "end")
         self.exit_entry.pack(fill="x", padx=S(20), pady=(0, S(10)), before=self._erow)
         self.exit_entry.focus_set()
@@ -2337,10 +2352,10 @@ class App:
         if self.exit_entry.get() == self._surr_phrase:
             self._surrender_commit()
         else:
-            self._surr_phrase = surrender_phrase()
-            self.exit_entry.delete(0, "end")
-            self.exit_lbl.config(text="type this number, exactly, to be let go:\n\n%s" % self._surr_phrase)
+            self._surr_phrase = surrender_phrase()      # a new number, shown for a breath, then gone
             self.oracle.say_from(SCORN)
+            self._enter_wait(SURRENDER_FLASH + 2)
+            self._surrender_tick()
 
     def _surrender_cancel(self):
         self._surrender_reset()
