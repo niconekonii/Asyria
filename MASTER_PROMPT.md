@@ -43,6 +43,10 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 3. New start sound (minor, rising) and a different end sound (major, falling).
 4. Purpose: also tests the update restart fix (v4.0.13 → this release should restart by itself).
 
+## 5j. Console redesign (BUILT, release pending)
+- Terminal/console look: bordered shell, titlebar + rule, bottom status strip, ring with dial ticks + CRT
+  scanlines, small-caps ring labels, 16 px gutters. Palette + SCAN/TICK/TICK_HI. Fixes the 'plain/vibecoded' feel.
+
 ## 5i. Way-out code hidden at typing (BUILT, release pending)
 - The 10-digit code shows for 10 s at the start, then vanishes; typed from memory with nothing on screen.
   Wrong guess re-flashes a new code and waits again. Still 50 clicks + 5-min wait; still completable.
