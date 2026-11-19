@@ -3,7 +3,7 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
-## v4.0.? — 2026-11-19 — Way-out passphrase -> a random 3-digit code
+## v4.0.28 — 2026-11-19 — Way-out passphrase -> a random 3-digit code
 - The 200-character passphrase is gone. The final step of the surrender ordeal is now a **random 3-digit
   code** (e.g. 272, 100, 007), freshly rolled each time it is shown and re-rolled on every wrong guess.
   No memorising, no automating — you must read the current number and enter it, present and awake.
