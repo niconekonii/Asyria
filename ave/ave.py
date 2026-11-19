@@ -15,10 +15,11 @@ One file, Python standard library only.
     after a reboot it uses online time, or - offline - counts only uptime.
   * State is signed and stored twice (file + registry); a suspended or hung
     Ave is detected by its heartbeat and replaced by the guard task.
-  * Fail-safe: every block is removed when the session ends. If removal
-    needs admin and we lack it, Windows is asked (UAC) via "--cleanup".
+  * Fail-safe: every block is removed when the session ends; the app also
+    tidies up on its own if it ever finds a dead session with blocks left.
 
-Emergency unblock:  Ave.exe --cleanup   (run as administrator)
+There is no escape command. The only way out of a running session is the
+surrender ordeal inside the app.
 """
 
 import os
@@ -1398,14 +1399,16 @@ class Session:
         clean = self.lift()
         guard_remove()
         autostart(False)
-        if not clean and not run_elevated("--cleanup"):
-            self.pending_cleanup = True    # retried on every launch until clean
+        if not clean:
+            self.pending_cleanup = True    # retried internally on the next admin launch
         self.save()
         kill_watcher()
 
 
 def cleanup_everything():
-    """--cleanup: lift every block Ave could have set, then exit."""
+    """Internal self-heal only. Lifts every block Ave could have set. NOT user-invocable:
+    runs when a guard finds no active session, or to finish a failed lift on the next admin
+    launch. There is no --cleanup command; the one way out of a session is the in-app ordeal."""
     cfg = load_json(CONFIG_FILE, {}) or {}
     st = state_load()
     exes = set(cfg.get("exes", [])) | set(st.get("exes", []))
@@ -1950,12 +1953,9 @@ class App:
     def _resume(self, st):
         s = self.session
         s.restore(st)
-        if s.pending_cleanup:
-            if is_admin():
-                cleanup_everything()
-                s.pending_cleanup = False
-            else:
-                run_elevated("--cleanup")
+        if s.pending_cleanup and is_admin():
+            cleanup_everything()            # internal self-heal; no --cleanup command exists
+            s.pending_cleanup = False
         if s.active:
             ev = s.tick()                       # catch up on time spent dead/rebooted
             if "done" in ev:
@@ -2834,8 +2834,8 @@ def take_over_if_frozen():
 
 
 def main():
-    if "--cleanup" in sys.argv:
-        cleanup_everything()
+    if "--selftest" in sys.argv:          # build check only: confirm the exe runs, then exit
+        print("%s %s" % (APP, VERSION))
         return
     if "--watch" in sys.argv:
         i = sys.argv.index("--watch")

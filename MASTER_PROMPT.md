@@ -43,6 +43,11 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 3. New start sound (minor, rising) and a different end sound (major, falling).
 4. Purpose: also tests the update restart fix (v4.0.13 → this release should restart by itself).
 
+## 5f. Remove --cleanup (BUILT, release pending)
+- The `--cleanup` escape command is removed (user's call, net included). The surrender ordeal is the only
+  way out of a running session. Blocks still lift on normal session end; internal self-heal stays (fires only
+  when no session is active). CI smoke test uses a new build-only `--selftest`. Hard rule §4 updated.
+
 ## 5e. The one way out (SHIPPED as v4.0.22)
 - A single deliberately-grueling exit during a session: click her line 10x, wait 60 s, type a random 40-char
   passphrase (wrong = regenerate), then the session ends and unblocks. "stay" cancels. `--cleanup` kept as the

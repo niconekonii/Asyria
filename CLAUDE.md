@@ -69,7 +69,9 @@ Hard rules (the user set these; do not break them):
 3. **One deliberately-grueling way out:** no casual stop/cancel, close refused, settings locked, survives reboot,
    relaunches itself if killed.
 4. **Fail-safe above all:** if any blocker fails, fall back to plain process killing;
-   **nothing may stay blocked after a session ends.** `Ave.exe --cleanup` lifts everything.
+   **nothing may stay blocked after a session ends.** A session ending lifts every block directly, and the
+   app self-heals if it finds a dead session with blocks left. There is **no `--cleanup` command** (removed
+   by the user): the only way out of a running session is the in-app surrender ordeal.
 5. **One file, Python standard library only** (`ave/ave.py`). No pip packages at runtime.
 6. **Look (matte, since the Matte update):** `#222222` background, dark-red UI (`#790100`, hover
    `#9a1d1b`). Greys are tinted with the red but muted so text stays readable (`DIM #b37c78` (4.6:1),
@@ -160,7 +162,7 @@ Top to bottom:
   the helper runs with `PYINSTALLER_RESET_ENVIRONMENT=1`, set for all children when frozen).
   `App._watch_update` (2 s) installs only when no session runs and you're on home (or after a
   manual check). Settings tab **About**. Script mode (`VERSION == "dev"`) never updates.
-- **main():** `--cleanup` → lift all & exit. Single instance via mutex
+- **main():** `--selftest` → print version & exit (CI build check only). Single instance via mutex
   `Local\AveSingleton`. `--guard` launches: take over if the running Ave's heartbeat is
   >150 s old (suspended/hung). `--watch <pid>` runs the watchdog. If no active session → tidy up and exit; non-admin login
   copy of an admin session exits so the elevated guard copy takes over.
@@ -180,7 +182,7 @@ Top to bottom:
   Countdown and break logic can be tested with a fake clock: replace `ave.ticks` with a
   function that returns a settable uptime in ms, then call `session.tick()` or `advance_s`.
 - **Release:** every push to the **default branch** runs `.github/workflows/build.yml` on
-  a real Windows runner: PyInstaller build → smoke test `Ave.exe --cleanup` → GitHub
+  a real Windows runner: PyInstaller build → smoke test `Ave.exe --selftest` → GitHub
   Release `v4.0.<run_number>` with `Ave.exe` attached, notes = top DEVLOG entry.
   Pushes to other branches build an artifact only (no release).
 - Tag pushes are blocked from sessions; the workflow creates tags itself. Don't push tags.

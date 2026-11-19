@@ -3,6 +3,27 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## v4.0.? — 2026-11-19 — Remove the --cleanup escape command
+- **The `--cleanup` kill switch is gone.** It could end a live session from outside (a bypass of the
+  surrender ordeal) and was the manual recovery command. Removed by your call, net included: the in-app
+  surrender ordeal is now the **only** way out of a running session.
+- **What still lifts blocks:** a session ending normally (completion or the ordeal) lifts everything
+  directly, as before. The app also self-heals — if a guard ever finds a dead session with blocks left,
+  or an admin launch finds a failed lift, it tidies up on its own. That path runs only when no session is
+  active, so it is not a door you can open.
+- **The honest cost:** there is no longer any command to recover a broken, running session. If Ave ever
+  breaks mid-session and the ordeal is unreachable, clearing a stuck block means editing the Windows hosts
+  file and the IFEO registry keys by hand, or reinstalling. You chose this with eyes open.
+- Build self-test: the CI smoke test ran `Ave.exe --cleanup`; it now runs a new build-only `--selftest`
+  (prints version, exits, touches nothing — not a kill switch).
+- Internals: `main()` drops the `--cleanup` branch, adds `--selftest`; `Session.finish()` and `_resume`
+  no longer elevate via `--cleanup`; `cleanup_everything()` kept as an internal self-heal only.
+- Tested: pyflakes; off-Windows (5 checks): no `--cleanup` branch or elevation left, `--selftest` prints
+  the version and exits, running with `--cleanup` does NOT trigger cleanup, internal self-heal still lifts
+  and marks the session inactive. Earlier suites pass (surrender 15, edit 15, lock 9, watcher 20).
+- Not tested: on a real Windows PC — that `--cleanup` is truly inert there, and that blocks still lift on a
+  normal session end without it.
+
 ## v4.0.22 — 2026-11-18 — The one way out: the surrender ordeal
 - **A single, deliberately-grueling exit** (you asked for exactly one hard way to turn Ave off during a
   session). Summon it by clicking Oblivionis's line ten times in a row. Then:

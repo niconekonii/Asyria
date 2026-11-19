@@ -48,8 +48,11 @@ Anti-cheat games may object to the registry launch block.
 
 ## If something stays blocked
 
-That shouldn't happen. Ave removes every block when a session ends. If it ever does,
-run `Ave.exe --cleanup` as administrator.
+That shouldn't happen: Ave removes every block the moment a session ends, and tidies up
+on its own if it ever finds a session that died with blocks left. There is no `--cleanup`
+command any more — the only way out of a running session is the in-app surrender ordeal.
+If a block ever truly stays stuck, you clear it by hand (the hosts file and the IFEO
+registry keys) or reinstall.
 
 ## Not tested yet
 

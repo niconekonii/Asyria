@@ -24,8 +24,8 @@ jobs:
         run: |
           pip install "pyinstaller>=6.10"
           pyinstaller --onefile --noconsole --name Ave ave/ave.py
-      - name: Smoke test (cleanup mode runs and exits)
-        run: .\dist\Ave.exe --cleanup
+      - name: Smoke test (exe runs and exits)
+        run: .\dist\Ave.exe --selftest
       - uses: actions/upload-artifact@v4
         with:
           name: Ave
