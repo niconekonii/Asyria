@@ -3,6 +3,22 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## v4.0.? — 2026-11-19 — The code is hidden when you type it (memory now, not patience)
+- The three-digit code is no longer on screen when you enter it. It is shown for a **breath (10 s) at the
+  start**, then it vanishes — you hold it in your head through the whole five-minute wait while she taunts
+  you, and type it at the end with **nothing to read**.
+- Forget it and guess wrong? She rolls a **new** code, flashes it for ten seconds, and makes you wait again
+  before you can retype. The door still opens — memory is the toll, not luck. (Chosen over never showing it
+  at all, which would be blind guessing, a thousand hopeless stabs; this stays completable.)
+- Internals: code rolled in `_surrender_begin` (not `_to_type`); new `_enter_wait()` sets a `SURRENDER_FLASH`
+  (10 s) visibility window; `_surrender_tick` shows the code only inside it; `_to_type` shows no code; a wrong
+  guess re-flashes a fresh code via a short `_enter_wait`. Exit label font back to `MONO 10`.
+- Tested: pyflakes; Xvfb memory-ordeal test (14 checks) — code rolled up front, shown during the flash, gone
+  after it, no box during the wait, type stage shows nothing, wrong guess re-flashes a new code + scorns +
+  session survives, correct memorised code ends the session, stay cancels. Screenshots of flash/held/type
+  reviewed. Earlier suites pass.
+- Not tested: the real 10 s flash, holding it through the 5-minute wait, and typing blind on a real Windows PC.
+
 ## v4.0.28 — 2026-11-19 — Way-out passphrase -> a random 3-digit code
 - The 200-character passphrase is gone. The final step of the surrender ordeal is now a **random 3-digit
   code** (e.g. 272, 100, 007), freshly rolled each time it is shown and re-rolled on every wrong guess.
