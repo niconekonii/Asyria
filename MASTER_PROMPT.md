@@ -17,7 +17,7 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 - Hard rules: no way out during a session; nothing stays blocked after a session; lightweight.
 
 ## 3. Release flow
-- Repo `niconekonii/Asyria`. Default branch `claude/elegant-tesla-vn5sep`. Push there. Don't open PRs unless asked. Don't force-push. Don't push tags.
+- Repo `niconekonii/Asyria`. Default branch `claude/elegant-tesla-vn5sep`. When the user asks to release, always push there (their standing permission; no PR). Don't open PRs unless asked. Don't force-push. Don't push tags.
 - Every push to the default branch builds a release `v4.0.<run_number>`. Docs-only commits use `[skip ci]`.
 - Each change gets a DEVLOG entry at the top of `ave/DEVLOG.md`. After the build, replace `v4.0.?` with the real tag in a `[skip ci]` commit.
 - Before pushing: `python3 -m pyflakes ave/ave.py`. For UI, run under xvfb with `/usr/bin/python3.12` and check screenshots.

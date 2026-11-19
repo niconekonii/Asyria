@@ -254,6 +254,8 @@ Defender may flag the unsigned PyInstaller exe: user excludes `%LOCALAPPDATA%\Av
   the default branch.
 - `ave/ave.py` is one file — two chats editing it at once will collide. Keep each task
   small and focused; mention in DEVLOG which areas you touched.
-- When your task is done, tell the user and ask whether to open a pull request into the
-  default branch (merging it = it becomes the base for future chats and gets released).
+- **Standing permission (the user's rule):** when the user asks to release, push straight to the default
+  branch (fast-forward from your branch). No pull request, no asking which road.
+- When your task is done and the user has not asked to release, tell them it is ready and that they can
+  say "release" (push to the default branch).
 - Commit/push rules from the session's system prompt still apply.
