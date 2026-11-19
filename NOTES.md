@@ -20,6 +20,7 @@ Each item needs a real Windows test before it's called done.
   (Ave.exe + AveGuard.exe) taskkill resistance; the suspend relaunch
 - The surrender ordeal: 10 clicks to summon, the 60 s wait, typing the 40-char phrase, and that committing
   it truly ends the session and lifts every block on a real PC
+- That `--cleanup` is now inert on Windows and that blocks still lift on a normal session end without it
 
 Also untested, from the next update onward: manual breaks, the manual program box,
 the ±1 timer buttons, the new fonts and effects, the message bank shuffle, the typewriter speed.
