@@ -37,7 +37,10 @@ Release numbers come from the GitHub build (`v4.0.<run_number>`).
   transparent corners) and the art reviewed at 16-256 px; Xvfb logic suite 21/21 (X hides to tray when
   idle, hint once, tray click restores, X and tray-quit refused in a session, menu locked in a session,
   tips, quit when idle, no-tray fallback closes, uninstaller folder guard); home screenshot unchanged.
-  Windows CI: see the shell self-test step of this build (shortcut + icon load + tray window).
+  **Windows CI (real runner, branch build #36):** icon file loads (`LoadImageW` ok); shortcut made by the COM
+  code reads back with the right target, the "Run as administrator" flag set and app id `Ave.Oblivionis`;
+  the tray window and icon were created (`Shell_NotifyIcon` ok) and removed. The smoke tests now check the
+  real exit code.
 - Not tested (needs your PC): the first-run install and hand-off, the Start entry and pinning, the
   taskbar grouping of relaunched copies, the tray icon and its menu with a real Explorer, the
   one-time notice, uninstall from Installed apps (and its refusal during a session), the
