@@ -3,7 +3,7 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
-## v4.0.? — 2026-11-19 — The surrender ordeal, 5x harder
+## v4.0.26 — 2026-11-19 — The surrender ordeal, 5x harder
 - You asked for five times the cruelty on the one way out. Every dial turned:
   - Clicks to summon it: 10 -> **50**.
   - The forced wait: 60 s -> **300 s (five minutes)**.
@@ -17,7 +17,7 @@ Release numbers come from the GitHub build (`v4.0.<run_number>`).
   stay cancels. Screenshot of the 200-char type stage reviewed (fits, buttons visible). Earlier suites pass.
 - Not tested: the real 5-minute wait and typing 200 characters on a real Windows PC.
 
-## v4.0.? — 2026-11-19 — Remove the --cleanup escape command
+## v4.0.24 — 2026-11-19 — Remove the --cleanup escape command
 - **The `--cleanup` kill switch is gone.** It could end a live session from outside (a bypass of the
   surrender ordeal) and was the manual recovery command. Removed by your call, net included: the in-app
   surrender ordeal is now the **only** way out of a running session.
