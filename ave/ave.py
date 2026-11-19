@@ -343,7 +343,7 @@ STAYED = [               # you summoned the exit, then chose to stay
     "The flinch passed. You are still here. Continue.",
     "Wise. The way out was never worth the hour it would cost you.",
 ]
-SURRENDER_LEN = 3        # digits in the random code you must type to leave (re-rolled every time)
+SURRENDER_LEN = 10       # digits in the random code you must memorise to leave (re-rolled every time)
 SURRENDER_WAIT = 300     # seconds you must wait first (5 minutes, 5x harder)
 SURRENDER_CLICKS = 50    # clicks on her line to summon the way out (5x harder)
 SURRENDER_FLASH = 10     # seconds the code is shown at the start, then it vanishes

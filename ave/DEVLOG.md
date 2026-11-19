@@ -3,6 +3,16 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## v4.0.? — 2026-11-19 — Hotfix: the memorised code is now 10 digits, not 3
+- The way-out code you must hold in your head is now a random **10-digit** number (a phone number's worth),
+  not three. Still flashed for 10 s at the start, then hidden through the wait and the typing; a wrong guess
+  still re-flashes a fresh 10-digit code. Everything else unchanged (50 clicks, 5-minute wait).
+- Internals: `SURRENDER_LEN` 3 -> 10. The digit-only entry validator caps at the new length automatically.
+- Tested: pyflakes; Xvfb memory-ordeal test (14 checks) against the new length — 10-digit code rolled up
+  front, shown during the flash, gone after, type stage blank, wrong re-flashes a new 10-digit code, correct
+  ends the session, stay cancels. Screenshot of the 10-digit flash + blank type stage reviewed (fits one line).
+- Not tested: holding ten digits through the 5-minute wait and typing them blind on a real Windows PC.
+
 ## v4.0.? — 2026-11-19 — The code is hidden when you type it (memory now, not patience)
 - The three-digit code is no longer on screen when you enter it. It is shown for a **breath (10 s) at the
   start**, then it vanishes — you hold it in your head through the whole five-minute wait while she taunts
