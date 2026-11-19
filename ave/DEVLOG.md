@@ -28,8 +28,11 @@ Release numbers come from the GitHub build (`v4.0.<run_number>`).
   sets DWM attributes 34/35/36. `selftest_shell` checks the task XML, MOTW, the IFEO stub and the
   Firefox policy round trip on the CI runner.
 - Tested: pyflakes; task XML parses (escaping checked with `&` and `\` in names); Linux suites still
-  21/21 (tray) and 17/17 (stale copies); Firefox/task code are no-ops off Windows. Windows CI: see the
-  shell self-test step of this build.
+  21/21 (tray) and 17/17 (stale copies); Firefox/task code are no-ops off Windows.
+  **Windows CI (real runner, branch build #41):** guard task registered from XML and Windows kept every
+  setting (battery off, priority 5, Parallel, logon trigger, 1-min repeat, no limit); `copy2` DID carry
+  the internet mark onto copies (the bug was real) and `strip_motw` removed it; IFEO stub `systray.exe`
+  present; Firefox policy set, then fully removed; shortcut/icon/tray still ok.
 - Not tested (needs your PC): the guard task on battery / after unplugging / at logon; Firefox really
   refusing blocked sites after a restart of Firefox; the Win11 title bar colours; Terminal being closed.
 - Cannot be fixed from inside Ave: **Smart App Control** (Windows 11) blocks unsigned apps with no "Run
