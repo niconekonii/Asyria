@@ -3,7 +3,7 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
-## v4.0.? — 2026-11-19 — Console redesign: it stops looking authorless
+## v4.0.34 — 2026-11-19 — Console redesign: it stops looking authorless
 - A committed terminal/console art direction, so the UI no longer floats as plain centred widgets:
   - **A bordered shell** — the whole app sits inside a drawn 1 px console frame with a small gutter.
   - **Titlebar + rule** at the top (the `ave█` wordmark and the settings/●-locked state, a hairline beneath).
@@ -19,7 +19,7 @@ Release numbers come from the GitHub build (`v4.0.<run_number>`).
   strip, small-caps). Ordeal/edit/lock suites still pass (surrender 14, edit 15, lock 9).
 - Not tested: how the frame, ticks and scanlines render with the real Bahnschrift/Cascadia fonts on Windows.
 
-## v4.0.? — 2026-11-19 — Hotfix: the memorised code is now 10 digits, not 3
+## v4.0.32 — 2026-11-19 — Hotfix: the memorised code is now 10 digits, not 3
 - The way-out code you must hold in your head is now a random **10-digit** number (a phone number's worth),
   not three. Still flashed for 10 s at the start, then hidden through the wait and the typing; a wrong guess
   still re-flashes a fresh 10-digit code. Everything else unchanged (50 clicks, 5-minute wait).
@@ -29,7 +29,7 @@ Release numbers come from the GitHub build (`v4.0.<run_number>`).
   ends the session, stay cancels. Screenshot of the 10-digit flash + blank type stage reviewed (fits one line).
 - Not tested: holding ten digits through the 5-minute wait and typing them blind on a real Windows PC.
 
-## v4.0.? — 2026-11-19 — The code is hidden when you type it (memory now, not patience)
+## v4.0.30 — 2026-11-19 — The code is hidden when you type it (memory now, not patience)
 - The three-digit code is no longer on screen when you enter it. It is shown for a **breath (10 s) at the
   start**, then it vanishes — you hold it in your head through the whole five-minute wait while she taunts
   you, and type it at the end with **nothing to read**.
