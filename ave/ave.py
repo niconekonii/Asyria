@@ -619,9 +619,10 @@ def ticks():
 
 
 def launch_parts():
-    """(exe, args) to start this app again, without a console window."""
+    """(exe, args) to start this app again, without a console window.
+    Built: the NEWEST known Ave.exe (installed copy, hidden spare, or this one) - never a stale one."""
     if FROZEN:
-        return (BACKUP if os.path.exists(BACKUP) else SELF), ""
+        return newest_exe(), ""
     exe = sys.executable
     w = os.path.join(os.path.dirname(exe), "pythonw.exe")
     return (w if os.path.exists(w) else exe), '"%s"' % SELF
@@ -664,20 +665,63 @@ def online_time():
 _HELD = []
 
 
-def ensure_backup():
-    """Keep a hidden spare Ave.exe; the guard task always starts that one."""
-    if not (IS_WIN and FROZEN):
+COPIES = os.path.join(BIN, "copies.json")   # {"ave.exe": {"v": "v4.0.N", "size": bytes}, ...}
+
+
+def copy_version(path):
+    """The Ave version inside `path`, or '' if unknown. The hidden copies are stamped
+    when written (version + size); a size mismatch means someone else wrote the file."""
+    if not path:
+        return ""
+    if _same(path, SELF):
+        return VERSION
+    if _same(path, INSTALL_EXE):
+        return installed_version()
+    st = (load_json(COPIES, {}) or {}).get(os.path.basename(path).lower()) or {}
+    try:
+        if st.get("size") == os.path.getsize(path):
+            return st.get("v", "")
+    except OSError:
+        pass
+    return ""
+
+
+def newest_exe():
+    """The Ave.exe to (re)launch: the highest known version among the installed copy, the
+    hidden spare and this exe (ties prefer that order). An unknown version counts as oldest."""
+    cands = [p for p in (INSTALL_EXE, BACKUP, SELF)
+             if p and not _same(p, WATCH_EXE) and os.path.exists(p)]
+    if not cands:
+        return SELF
+    return max(cands, key=lambda p: (parse_ver(copy_version(p)), -cands.index(p)))
+
+
+def _refresh_copy(dest):
+    """Make the hidden copy `dest` this exact version. Decided by VERSION, not file dates
+    (dates once let an old Ave linger here and come back after a restart). Never downgrades
+    a copy stamped newer; an unstamped copy was written by an older Ave, so it is replaced."""
+    if not (IS_WIN and FROZEN) or _same(SELF, dest):
         return
     try:
-        if os.path.normcase(SELF) == os.path.normcase(BACKUP):
-            return
         os.makedirs(BIN, exist_ok=True)
-        # only ever refresh with a NEWER file, so an old copy can't downgrade it
-        if not os.path.exists(BACKUP) or os.path.getmtime(BACKUP) < os.path.getmtime(SELF):
-            shutil.copy2(SELF, BACKUP)
+        have = copy_version(dest) if os.path.exists(dest) else ""
+        if not have or parse_ver(have) < parse_ver(VERSION):
+            shutil.copy2(SELF, dest + ".part")
+            os.replace(dest + ".part", dest)
+            stamps = load_json(COPIES, {}) or {}
+            stamps[os.path.basename(dest).lower()] = {"v": VERSION, "size": os.path.getsize(dest)}
+            save_json(COPIES, stamps)
         ctypes.windll.kernel32.SetFileAttributesW(BIN, 0x2)    # hidden
     except Exception:
-        pass
+        try:
+            os.remove(dest + ".part")
+        except OSError:
+            pass
+
+
+def ensure_backup():
+    """Keep the hidden spare Ave.exe at this version (the restart guard may start it)."""
+    _refresh_copy(BACKUP)
 
 
 def hold_files():
@@ -690,8 +734,8 @@ def hold_files():
     k.CreateFileW.argtypes = [ctypes.c_wchar_p, ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p,
                               ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p]
     bad = ctypes.c_void_p(-1).value
-    for p in {SELF, BACKUP, WATCH_EXE}:
-        if os.path.exists(p):
+    for p in {SELF, BACKUP, WATCH_EXE, INSTALL_EXE}:
+        if p and os.path.exists(p):
             h = k.CreateFileW(p, 0x80000000, 0x1, None, 3, 0, None)   # read, share read only
             if h and h != bad:
                 _HELD.append(h)
@@ -897,15 +941,7 @@ def _run(cmd):
 
 def ensure_watch_copy():
     """Keep a hidden spare under a DIFFERENT name for the watcher to run from."""
-    if not (IS_WIN and FROZEN):
-        return
-    try:
-        os.makedirs(BIN, exist_ok=True)
-        if not os.path.exists(WATCH_EXE) or os.path.getmtime(WATCH_EXE) < os.path.getmtime(SELF):
-            shutil.copy2(SELF, WATCH_EXE)
-        ctypes.windll.kernel32.SetFileAttributesW(BIN, 0x2)    # hidden
-    except Exception:
-        pass
+    _refresh_copy(WATCH_EXE)
 
 
 def relaunch_main():
@@ -1464,6 +1500,14 @@ def latest_release():
     return None
 
 
+def update_target():
+    """The exe an update replaces: the installed copy if there is one (so a spare that was
+    started after a restart updates the real install, not itself), else this exe."""
+    if INSTALL_EXE and os.path.exists(INSTALL_EXE) and not _same(SELF, WATCH_EXE):
+        return INSTALL_EXE
+    return SELF
+
+
 class Updater:
     """Background check + download. The UI thread reads .state via a 2 s timer."""
 
@@ -1493,7 +1537,7 @@ class Updater:
             self.state = "latest"
             return
         self.state = "downloading"
-        dest = os.path.join(os.path.dirname(SELF), "Ave.new.exe")
+        dest = os.path.join(os.path.dirname(update_target()), "Ave.new.exe")
         try:
             import urllib.request
             req = urllib.request.Request(info["url"], headers={"User-Agent": "Ave-updater"})
@@ -1527,7 +1571,7 @@ class Updater:
             ")\r\n"
             "exit /b 1\r\n"
             ":ok\r\n"
-            'start "" "%s" --updated\r\n' % (self.path, SELF, SELF))
+            'start "" "%s" --updated\r\n' % (self.path, update_target(), update_target()))
         try:
             with open(bat, "w", encoding="ascii", errors="ignore", newline="") as f:
                 f.write(script)
@@ -1776,9 +1820,10 @@ def installed_version():
         return ""
 
 
-def register_install():
+def register_install(version=None):
     """Start menu shortcut + 'Installed apps' entry for the installed copy. Cheap, so the
-    installed Ave refreshes it on every normal launch (keeps the version right after updates)."""
+    installed Ave refreshes it on every normal launch (keeps the version right after updates).
+    `version` = what is really inside INSTALL_EXE (default: this exe's)."""
     if not (IS_WIN and FROZEN and INSTALL_EXE and os.path.exists(INSTALL_EXE)):
         return
     if not os.path.exists(START_LNK):
@@ -1786,7 +1831,7 @@ def register_install():
     try:
         import winreg
         with winreg.CreateKey(winreg.HKEY_CURRENT_USER, UNINST_KEY) as k:
-            for name, val in (("DisplayName", APP), ("DisplayVersion", VERSION),
+            for name, val in (("DisplayName", APP), ("DisplayVersion", version or VERSION),
                               ("Publisher", "Oblivionis"), ("DisplayIcon", INSTALL_EXE + ",0"),
                               ("InstallLocation", INSTALL_DIR),
                               ("UninstallString", '"%s" --uninstall' % INSTALL_EXE)):
@@ -1817,7 +1862,8 @@ def install_self():
         if not os.path.exists(INSTALL_EXE) or parse_ver(VERSION) >= parse_ver(have):
             shutil.copy2(SELF, INSTALL_EXE + ".part")
             os.replace(INSTALL_EXE + ".part", INSTALL_EXE)
-        register_install()
+            have = VERSION
+        register_install(have)
         return os.path.exists(INSTALL_EXE)
     except Exception:
         return False
@@ -3084,6 +3130,8 @@ class App:
         self.root.after(30000, self._heal)
 
     def _complete(self):
+        if self.cfg.get("auto_update"):
+            self.root.after(8000, self.updater.start)   # a --guard relaunch skipped it at startup
         melody(SOUND_DONE)
         self._raise()
         self.oracle.pool = lambda: IDLE
@@ -3545,6 +3593,17 @@ def ave_running():
     return False
 
 
+def stale_handoff_target():
+    """If this exe is OLDER than a known copy (installed or hidden spare), return that copy.
+    An old task or shortcut can then never bring back a past version. '--handoff' stops loops."""
+    if not (IS_WIN and FROZEN) or "--handoff" in sys.argv or _same(SELF, WATCH_EXE):
+        return None
+    best = newest_exe()
+    if best and not _same(best, SELF) and parse_ver(copy_version(best)) > parse_ver(VERSION):
+        return best
+    return None
+
+
 def relaunch_installed():
     """Start the installed Ave (same rights as this one) and let this copy go."""
     return _run('"%s" --installed' % INSTALL_EXE)
@@ -3606,6 +3665,11 @@ def main():
         i = sys.argv.index("--watch")
         run_watcher(sys.argv[i + 1] if i + 1 < len(sys.argv) else 0)
         return
+    newer = stale_handoff_target()
+    if newer:                           # this copy is older than one we know: run that one instead
+        args = " ".join('"%s"' % a for a in sys.argv[1:] if a != "--installed")
+        if _run('"%s" %s --handoff' % (newer, args)):
+            return
     guard = "--guard" in sys.argv
     if not guard and install_wanted() and not state_load().get("active") and not ave_running():
         # a downloaded Ave.exe: install it (or refresh the install), then hand over to it
@@ -3623,8 +3687,8 @@ def main():
         return
     if guard and st.get("admin") and not is_admin() and guard_exists():
         return                      # login copy without admin: the elevated guard takes over
+    ensure_backup()                     # by version: a stale spare is replaced, a newer one kept
     if not st.get("active"):
-        ensure_backup()
         if not guard and _same(SELF, INSTALL_EXE):
             register_install()          # keep Start menu + Installed apps current
     if IS_WIN:

@@ -3,7 +3,22 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
-## v4.0.? — 2026-11-19 — Installable: Start menu, taskbar pin, tray icon, own icon
+## v4.0.? — 2026-11-19 — Installable (Start, pin, tray, icon) + restart no longer brings back an old Ave
+- **Fix: after a PC restart an old Ave came back.** The restart guard (task + login entry) starts the
+  hidden spare `%LOCALAPPDATA%\Ave\bin\Ave.exe`. That spare was refreshed by *file date*, not version
+  (`copy2` keeps dates; an old Ave run later could also win on date), so it could stay a past version —
+  and a copy started that way (`--guard`) never auto-updated. Now:
+  - Spares (`Ave.exe`, `AveGuard.exe`) are stamped with their version + size (`bin\copies.json`) and
+    refreshed by **version**, on every launch (also mid-session). Unstamped = written by an older Ave =
+    replaced. Never downgraded.
+  - Every relaunch (restart task, login entry, watchdog, UAC relaunch) starts the **newest known** exe
+    (`newest_exe()`: installed copy, spare, this one).
+  - Any Ave that starts and is **older** than a known copy hands over to it at once (`--handoff`, once,
+    no loops). So even an old task or an old download can't put a past version on screen.
+  - Updates replace the installed copy even when a spare is the one running (`update_target()`), and an
+    Ave relaunched after a restart checks for updates once its session ends.
+  - The installer no longer writes an older download's version into Installed apps.
+  - I couldn't see your PC, so the exact old version is unknown; these close every path I found.
 - **Ave installs itself.** Run the downloaded `Ave.exe` once: it copies itself to
   `%LOCALAPPDATA%\Programs\Ave`, adds **Ave** to the Start menu (shortcut has "Run as administrator"
   ticked) and to **Settings > Apps > Installed apps**, then starts the installed copy (she says so).
@@ -33,7 +48,9 @@ Release numbers come from the GitHub build (`v4.0.<run_number>`).
   `main()` gains `--make-icon`, `--selftest-shell`, `--uninstall`, `--installed`; `ave_running()`,
   `relaunch_installed()`; `focus_existing()` asks the tray window first. CI smoke tests now really wait
   for the exe's exit code (`Start-Process -Wait`), plus a new shell self-test step.
-- Tested: pyflakes; `--make-icon` output read back (8 sizes, BMP + PNG entries, right way up,
+- Tested: pyflakes; stale-copy suite 17/17 (fake exes + versions: old spare with a newer date replaced, old exe
+  never downgrades, old exe hands off, no hand-off loop, tampered spare untrusted, restart targets the
+  installed copy, watcher never becomes main, older download keeps the newer install); `--make-icon` output read back (8 sizes, BMP + PNG entries, right way up,
   transparent corners) and the art reviewed at 16-256 px; Xvfb logic suite 21/21 (X hides to tray when
   idle, hint once, tray click restores, X and tray-quit refused in a session, menu locked in a session,
   tips, quit when idle, no-tray fallback closes, uninstaller folder guard); home screenshot unchanged.
@@ -41,7 +58,7 @@ Release numbers come from the GitHub build (`v4.0.<run_number>`).
   code reads back with the right target, the "Run as administrator" flag set and app id `Ave.Oblivionis`;
   the tray window and icon were created (`Shell_NotifyIcon` ok) and removed. The smoke tests now check the
   real exit code.
-- Not tested (needs your PC): the first-run install and hand-off, the Start entry and pinning, the
+- Not tested (needs your PC): a real restart mid-session now bringing back THIS version; the first-run install and hand-off, the Start entry and pinning, the
   taskbar grouping of relaunched copies, the tray icon and its menu with a real Explorer, the
   one-time notice, uninstall from Installed apps (and its refusal during a session), the
   v4.0.34 -> this auto-update path ending up installed.

@@ -27,7 +27,9 @@ the ±1 timer buttons, the new fonts and effects, the message bank shuffle, the 
 Typed minutes in the ring, the new start/end sounds.
 Matte update: the matte colours and fonts on a real screen, the wordmark cursor, ending a break early
 (blocks coming back on a real PC).
-Installable update: the first-run self-install and hand-off to the installed copy, the Start menu entry and
+Restart fix: that a mid-session restart brings back the current version (newest-copy relaunch, versioned
+spares, stale hand-off), and the hand-off from an old download.
+the first-run self-install and hand-off to the installed copy, the Start menu entry and
 pinning, taskbar grouping of relaunched copies (one app id), the tray icon/menu/hover text with a real Explorer
 (also as admin), X hiding to the tray, the one-time notice, uninstall from Installed apps (and its refusal during
 a session), and the old-folder v4.0.34 auto-update ending up installed. (The CI runner exercises the shortcut,

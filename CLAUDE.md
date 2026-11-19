@@ -112,8 +112,12 @@ Top to bottom:
 - **Helpers:** `beep()`, `melody(notes)` (background thread; `SOUND_START` minor rising, `SOUND_DONE`
   major falling), `MAX_MIN = 1000`, `digits_only()` (number boxes: 0-9 only, length cap), `ticks()` = Windows uptime ms (`GetTickCount64`, clock-proof),
   `online_time()` (HTTP Date header from google/microsoft/cloudflare), `run_elevated()` (UAC).
-- **Spare copy + delete lock:** `ensure_backup()`, `hold_files()` (open both exes without
-  delete-sharing during a session), `release_files()`.
+- **Spare copy + delete lock:** `COPIES` (`bin\copies.json`: version + size per spare), `copy_version(path)`,
+  `newest_exe()` (highest known version: installed, spare, self — what `launch_parts()` starts), `_refresh_copy()`
+  (by VERSION, never downgrades, unstamped = replace), `ensure_backup()` (every launch), `hold_files()` (open the
+  exes incl. the installed one without delete-sharing during a session), `release_files()`.
+  `stale_handoff_target()` in main: an Ave older than a known copy hands over to it (`--handoff`, once).
+  `update_target()`: updates replace the installed copy if there is one.
 - **Signed state:** `state_save/state_load` — HMAC-signed JSON written to the file AND
   `HKCU\Software\Ave\state`; newest valid copy (by `seq`) wins; tampered copies ignored.
 - **Processes:** ctypes `CreateToolhelp32Snapshot` → `(pid, name, ppid)`;

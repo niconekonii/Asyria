@@ -48,6 +48,8 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
   apps entry with an uninstaller that refuses during a session. Pin from Start (Windows forbids self-pinning).
 - One taskbar app id for every copy. Tray icon: click = open, menu open/quit (quit greyed during a session),
   hover shows time left. Idle X hides to the tray; in a session X is refused as before.
+- Fix in the same update: after a restart an OLD Ave came back (spare refreshed by file date, and a --guard
+  relaunch never updated). Spares now versioned; relaunch = newest copy; older copies hand off.
 - Ave's own icon, drawn in code (tile, track, red arc + dot, block cursor). CI builds the exe with it and runs a
   shell self-test on the Windows runner.
 
