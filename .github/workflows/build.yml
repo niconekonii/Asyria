@@ -23,9 +23,26 @@ jobs:
       - name: Build
         run: |
           pip install "pyinstaller>=6.10"
-          pyinstaller --onefile --noconsole --name Ave ave/ave.py
+          python ave/ave.py --make-icon ave.ico
+          pyinstaller --onefile --noconsole --name Ave --icon ave.ico ave/ave.py
       - name: Smoke test (exe runs and exits)
-        run: .\dist\Ave.exe --selftest
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath .\dist\Ave.exe -ArgumentList "--selftest" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { exit 1 }
+      - name: Shell self-test (icon, Start shortcut, tray) on real Windows
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP "shell.txt"
+          $p = Start-Process -FilePath .\dist\Ave.exe -ArgumentList "--selftest-shell", "`"$out`"" -Wait -PassThru
+          Get-Content $out
+          $lnk = Join-Path $env:RUNNER_TEMP "selftest.lnk"
+          "lnk target: " + (New-Object -ComObject WScript.Shell).CreateShortcut($lnk).TargetPath
+          $b = [IO.File]::ReadAllBytes($lnk)
+          "runas flag: " + (($b[0x15] -band 0x20) -ne 0)
+          $item = (New-Object -ComObject Shell.Application).Namespace($env:RUNNER_TEMP).ParseName("selftest.lnk")
+          "lnk app id: " + $item.ExtendedProperty("System.AppUserModel.ID")
+          if ($p.ExitCode -ne 0) { exit 1 }
       - uses: actions/upload-artifact@v4
         with:
           name: Ave
@@ -35,7 +52,7 @@ jobs:
         shell: bash
         run: |
           awk '/^## /{n++} n==1' ave/DEVLOG.md | tail -n +2 > notes.md
-          printf '\n---\nDownload `Ave.exe`, put it in your `ave` folder, right-click > Run as administrator.\nUnsigned app: if SmartScreen warns, More info > Run anyway. Defender: exclude your `ave` folder and `%%LOCALAPPDATA%%\\Ave`.\n' >> notes.md
+          printf '\n---\nDownload `Ave.exe` and run it once (right-click > Run as administrator). It installs itself: find **Ave** in Start, right-click > Pin to taskbar / Pin to Start. Already installed? It updates itself.\nUnsigned app: if SmartScreen warns, More info > Run anyway. Defender: exclude `%%LOCALAPPDATA%%\\Ave` and `%%LOCALAPPDATA%%\\Programs\\Ave`.\n' >> notes.md
       - name: Publish release
         if: github.ref_name == github.event.repository.default_branch
         uses: softprops/action-gh-release@v2

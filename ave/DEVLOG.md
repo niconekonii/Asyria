@@ -3,6 +3,46 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
+## v4.0.? — 2026-11-19 — Installable: Start menu, taskbar pin, tray icon, own icon
+- **Ave installs itself.** Run the downloaded `Ave.exe` once: it copies itself to
+  `%LOCALAPPDATA%\Programs\Ave`, adds **Ave** to the Start menu (shortcut has "Run as administrator"
+  ticked) and to **Settings > Apps > Installed apps**, then starts the installed copy (she says so).
+  Pin it from Start: right-click > Pin to taskbar / Pin to Start. Windows forbids apps pinning themselves.
+  Running an older download never downgrades a newer install. Users on v4.0.34 get installed by the
+  normal self-update. Nothing is installed while a session runs.
+- **One taskbar identity** (`AUMID = "Ave.Oblivionis"`) for every copy — main, the hidden spare and
+  `AveGuard.exe` — and on the Start shortcut, so a relaunched Ave lands on the pinned icon instead of
+  appearing as a second app.
+- **Tray icon** (behind the taskbar's ^ arrow). Click = open. Right-click menu: "open ave" and "quit";
+  during a session "quit" is replaced by a greyed "the mask stays on". Hover text: `ave - ready`,
+  `ave - 24:13 left`, `ave - on break`. With no session, **X now hides Ave to the tray** (a one-time
+  notice says so); quit from the tray menu. During a session X is refused, exactly as before. If the
+  tray can't be created, X closes the app like before (never hides it somewhere unreachable).
+  Launching Ave again while it hides in the tray brings the window back.
+- **Uninstall** from Installed apps: refused while a session runs (her line). Otherwise asks for admin,
+  confirms, closes any idle Ave, lifts every block, removes the guard task, Run key, shortcut, registry
+  entries, `%LOCALAPPDATA%\Programs\Ave` and `%LOCALAPPDATA%\Ave` (only those two folders, path-checked).
+- **Ave has its own icon**: matte tile, grey track, red arc with a head dot, red block cursor. Drawn in
+  code (no image files): CI runs `ave.py --make-icon` and builds the exe with it; the window and tray use
+  the same drawing.
+- Internals (new sections between Updates and UI): `icon_pixels`/`png_bytes`/`ico_bytes`/`ensure_icon`;
+  `set_app_id`, `make_shortcut` (ctypes COM: IShellLinkW + IShellLinkDataList + IPropertyStore +
+  IPersistFile), `register_install`, `install_wanted`, `install_self`, `uninstall`, `_safe_dir`; `Tray`
+  (own thread + message loop, queue to the UI, re-adds itself when Explorer restarts, message filters
+  so an admin Ave still gets clicks); `selftest_shell`. `App._tray_poll` (250 ms), `App._quit`;
+  `main()` gains `--make-icon`, `--selftest-shell`, `--uninstall`, `--installed`; `ave_running()`,
+  `relaunch_installed()`; `focus_existing()` asks the tray window first. CI smoke tests now really wait
+  for the exe's exit code (`Start-Process -Wait`), plus a new shell self-test step.
+- Tested: pyflakes; `--make-icon` output read back (8 sizes, BMP + PNG entries, right way up,
+  transparent corners) and the art reviewed at 16-256 px; Xvfb logic suite 21/21 (X hides to tray when
+  idle, hint once, tray click restores, X and tray-quit refused in a session, menu locked in a session,
+  tips, quit when idle, no-tray fallback closes, uninstaller folder guard); home screenshot unchanged.
+  Windows CI: see the shell self-test step of this build (shortcut + icon load + tray window).
+- Not tested (needs your PC): the first-run install and hand-off, the Start entry and pinning, the
+  taskbar grouping of relaunched copies, the tray icon and its menu with a real Explorer, the
+  one-time notice, uninstall from Installed apps (and its refusal during a session), the
+  v4.0.34 -> this auto-update path ending up installed.
+
 ## v4.0.34 — 2026-11-19 — Console redesign: it stops looking authorless
 - A committed terminal/console art direction, so the UI no longer floats as plain centred widgets:
   - **A bordered shell** — the whole app sits inside a drawn 1 px console frame with a small gutter.

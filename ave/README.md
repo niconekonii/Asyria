@@ -4,11 +4,16 @@ A no-killswitch focus timer for Windows, watched over by Oblivionis.
 
 ## Get it (one step)
 
-Download **Ave.exe** from the repo's **Releases** page, put it in a folder called `ave`,
-then **right-click > Run as administrator**.
+Download **Ave.exe** from the repo's **Releases** page and **right-click > Run as administrator**, once.
 (Windows may warn that the app is unsigned: **More info > Run anyway**.)
+Ave installs itself to `%LOCALAPPDATA%\Programs\Ave` and appears in **Start** as **Ave**.
+Right-click it there > **Pin to taskbar** / **Pin to Start**. You can delete the downloaded file.
 
-If Defender complains, exclude **both** folders: your `ave` folder and `%LOCALAPPDATA%\Ave`
+- **Tray:** Ave sits behind the taskbar's **^** arrow. Click it to open. Right-click > **quit** to close it
+  (not offered during a session). With no session running, the window's **X** hides Ave to the tray.
+- **Uninstall:** Settings > Apps > Installed apps > Ave > Uninstall. Refused while a session runs.
+
+If Defender complains, exclude **both** folders: `%LOCALAPPDATA%\Programs\Ave` and `%LOCALAPPDATA%\Ave`
 (Ave keeps a hidden spare copy of itself there).
 
 ## Use it
@@ -31,6 +36,8 @@ Without admin, Ave still closes blocked programs, but it can't block websites or
 | You try... | Ave does |
 |---|---|
 | Close the window / Alt+F4 | Refuses |
+| Tray icon > quit | Not offered during a session |
+| Uninstall from Installed apps | Refuses during a session |
 | End task in Task Manager | Comes back within ~1 minute. The timer keeps counting. |
 | Delete `AveGuard` in Task Scheduler | Task Scheduler gets closed during focus, and `AveGuard` is recreated every ~90 s |
 | Suspend Ave (Resource Monitor etc.) | Its heartbeat stops, and the guard replaces it within ~3 minutes |

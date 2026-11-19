@@ -43,6 +43,14 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 3. New start sound (minor, rising) and a different end sound (major, falling).
 4. Purpose: also tests the update restart fix (v4.0.13 → this release should restart by itself).
 
+## 5k. Installable (BUILT, awaiting release tag)
+- Self-install on first run to `%LOCALAPPDATA%\Programs\Ave` + Start menu shortcut (runas, app id) + Installed
+  apps entry with an uninstaller that refuses during a session. Pin from Start (Windows forbids self-pinning).
+- One taskbar app id for every copy. Tray icon: click = open, menu open/quit (quit greyed during a session),
+  hover shows time left. Idle X hides to the tray; in a session X is refused as before.
+- Ave's own icon, drawn in code (tile, track, red arc + dot, block cursor). CI builds the exe with it and runs a
+  shell self-test on the Windows runner.
+
 ## 5j. Console redesign (SHIPPED as v4.0.34)
 - Terminal/console look: bordered shell, titlebar + rule, bottom status strip, ring with dial ticks + CRT
   scanlines, small-caps ring labels, 16 px gutters. Palette + SCAN/TICK/TICK_HI. Fixes the 'plain/vibecoded' feel.

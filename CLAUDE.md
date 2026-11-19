@@ -90,7 +90,7 @@ MASTER_PROMPT.md              working master prompt for the next update, updated
 NOTES.md                      known gaps: code never run on a real Windows PC
 history/                      snapshot of MASTER_PROMPT.md + the update, saved after each build
 README.md                     one-line pointer to ave/
-ave/ave.py                    THE app (single file, ~2430 lines)
+ave/ave.py                    THE app (single file, ~3640 lines)
 ave/README.md                 user guide + "escape routes" table + not-tested list
 ave/DEVLOG.md                 internal log — newest entry on top (see §6)
 ave/build_exe.bat             local Windows build (PyInstaller --onefile --noconsole)
@@ -107,6 +107,8 @@ Top to bottom:
   taskkill, wmic, mmc, schtasks, regedit, common process killers), `ALIASES` (extra domains per site), palette
   (`BG #222222`, `SURFACE`/`SURFACE2`/`SURFACE3`, `ACCENT` red, `DIM`/`FAINT`/`LINE` matte dark red,
   `ACCENT_DIM`, `ACCENT_FG`, `RING_TRACK`, `HER #a9b9d0`, `SCAN`/`TICK`/`TICK_HI` for the console), `TYPE_SPEED`.
+  Install: `INSTALL_DIR = %LOCALAPPDATA%\Programs\Ave`, `INSTALL_EXE`, `START_LNK` (Start menu), `UNINST_KEY`
+  (HKCU Installed apps entry), `AUMID = "Ave.Oblivionis"`, `ICON_FILE = DATA\ave1.ico` (rename on new art).
 - **Helpers:** `beep()`, `melody(notes)` (background thread; `SOUND_START` minor rising, `SOUND_DONE`
   major falling), `MAX_MIN = 1000`, `digits_only()` (number boxes: 0-9 only, length cap), `ticks()` = Windows uptime ms (`GetTickCount64`, clock-proof),
   `online_time()` (HTTP Date header from google/microsoft/cloudflare), `run_elevated()` (UAC).
@@ -133,6 +135,19 @@ Top to bottom:
   during a break), `enforce` (every 2 s, focus only), `finish`. `restore()`: same boot → exact uptime
   diff; after reboot → online time diff, else offline counts only this boot. Old phase-format state is
   not resumed.
+- **Icon (drawn in code):** `icon_pixels(n)` (SDF-antialiased tile + track + red arc + head dot + block cursor),
+  `png_bytes`, `ico_bytes(sizes)` (BMP small, PNG 256), `ICO_SIZES` (exe, via `--make-icon` in CI), `TRAY_SIZES`,
+  `ensure_icon()` (tray file). The window uses `iconphoto` with PNGs of the same art.
+- **Install:** `set_app_id()` (every copy = one taskbar app), `make_shortcut()` (ctypes COM: IShellLinkW +
+  IShellLinkDataList runas flag + IPropertyStore app id + IPersistFile; returns 'ok ...'/'fail: ...'),
+  `register_install()` (shortcut if missing + Installed-apps values; run on each normal launch of the installed
+  copy), `install_wanted()` (frozen, not the installed exe/spare/guard), `install_self()` (never downgrades,
+  by `DisplayVersion`), `uninstall()` (`--uninstall`: refused in a session; elevates; kills idle Aves; lifts all;
+  removes shortcut, keys, and only the two folders `_safe_dir` allows, via a retrying temp .bat).
+- **Tray:** `Tray` — own thread + Win32 message loop on a hidden `AveTrayWnd` window; clicks go to `Tray.q`
+  ("show"/"quit"); menu: open ave / quit, or greyed "the mask stays on" while `locked`; `set_tip`, `notify`
+  (one balloon), `stop`; re-adds on `TaskbarCreated`; message filters let an admin Ave receive clicks.
+  `selftest_shell(out)` exercises icon/shortcut/tray on the CI runner.
 - **UI (tkinter):** `Pill` (flat rounded button; kinds accent / ghost / chip / mono; `command=None`
   = disabled look), `Ring` (thin progress ring + head dot, dial ticks + CRT scanlines; digits shrink for H:MM:SS; `sweep()` winds it
   in on each screen change; `editable()` = click the number to type it, `stop_edit()`), `Wordmark` (`ave` + slow-blinking red block cursor), `Oracle` (Oblivionis
@@ -150,7 +165,9 @@ Top to bottom:
   - The one way out (`exit_box` on the run screen): `_her_click` counts 10 clicks -> `_surrender_begin`
     -> `_tick` (60 s wait) -> `_to_type` (random 40-char phrase) -> `_check` (wrong = regenerate + SCORN;
     right = `_commit` -> `Session.finish`) / `_cancel` (STAYED). The 10-digit code (`LEN=10`) is shown only for `SURRENDER_FLASH=10 s` at the start (`_enter_wait`), then hidden through the wait and the typing — entered from memory; a wrong guess re-flashes a new code. Constants `SURRENDER_CLICKS=50`, `WAIT=300 s`.
-  Loops: `_loop` 1 s UI and countdown, `_poll` 2 s enforce, `_heal` 30 s.
+  Loops: `_loop` 1 s UI and countdown, `_poll` 2 s enforce, `_heal` 30 s, `_tray_poll` 250 ms (tray queue + hover text).
+  Close: in a session X is refused; idle + tray up → `withdraw()` to the tray (one-time notice, `cfg.tray_hint`);
+  no tray → X quits. `_quit()` (tray menu) refuses during a session.
 - **Oblivionis lines:** `IDLE, FOCUS, CAUGHT, SEALED, RETURNED, BREAK, DONE, REFUSE` (original
   + 15 each), `BREAK_CUT` (10), `SURRENDER`/`SCORN`/`RELENT`/`STAYED` (the way-out ordeal). Break lines never name a number of minutes (the
   break length varies), `BANK` (13 groups of 10 + CRYCHIC). `Deck` = shuffle cycle (plays every line once, then
@@ -162,7 +179,10 @@ Top to bottom:
   the helper runs with `PYINSTALLER_RESET_ENVIRONMENT=1`, set for all children when frozen).
   `App._watch_update` (2 s) installs only when no session runs and you're on home (or after a
   manual check). Settings tab **About**. Script mode (`VERSION == "dev"`) never updates.
-- **main():** `--selftest` → print version & exit (CI build check only). Single instance via mutex
+- **main():** `--selftest` → print version & exit (CI build check only). `--make-icon <path>` (CI: exe icon),
+  `set_app_id()`, `--selftest-shell <out>` (CI), `--uninstall`. A downloaded exe (`install_wanted`) with no session
+  and no running Ave installs itself and starts the installed copy with `--installed` (`relaunch_installed`).
+  `focus_existing()` first posts `Tray.WM_SHOW` to the running Ave's tray window. Single instance via mutex
   `Local\AveSingleton`. `--guard` launches: take over if the running Ave's heartbeat is
   >150 s old (suspended/hung). `--watch <pid>` runs the watchdog. If no active session → tidy up and exit; non-admin login
   copy of an admin session exits so the elevated guard copy takes over.
@@ -182,7 +202,9 @@ Top to bottom:
   Countdown and break logic can be tested with a fake clock: replace `ave.ticks` with a
   function that returns a settable uptime in ms, then call `session.tick()` or `advance_s`.
 - **Release:** every push to the **default branch** runs `.github/workflows/build.yml` on
-  a real Windows runner: PyInstaller build → smoke test `Ave.exe --selftest` → GitHub
+  a real Windows runner: `--make-icon` → PyInstaller build (`--icon`) → smoke test `Ave.exe --selftest`
+  (Start-Process -Wait, real exit code) → shell self-test `--selftest-shell` (shortcut/icon/tray; log in the
+  step output) → GitHub
   Release `v4.0.<run_number>` with `Ave.exe` attached, notes = top DEVLOG entry.
   Pushes to other branches build an artifact only (no release).
 - Tag pushes are blocked from sessions; the workflow creates tags itself. Don't push tags.
@@ -218,8 +240,8 @@ change): still add a log entry, titled `## docs — YYYY-MM-DD — title`, and p
 Known gaps (code that has never run on a real Windows PC) are listed in `NOTES.md`.
 Deliberately open: Task Manager, cmd/PowerShell, other devices/accounts, Safe Mode,
 browser games on unlisted sites. Anti-cheat games may dislike IFEO.
-Defender may flag the unsigned PyInstaller exe: user excludes their `ave` folder and
-`%LOCALAPPDATA%\Ave`.
+Defender may flag the unsigned PyInstaller exe: user excludes `%LOCALAPPDATA%\Ave` and
+`%LOCALAPPDATA%\Programs\Ave` (the installed copy).
 
 ## 8. Working with several chats at once
 

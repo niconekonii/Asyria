@@ -34,6 +34,10 @@ import hashlib
 import shutil
 import threading
 import subprocess
+import queue
+import base64
+import struct
+import zlib
 
 APP = "Ave"
 VERSION = "dev"                 # the Windows build stamps the real tag here (v4.0.N)
@@ -66,6 +70,16 @@ IFEO_KEY = r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution O
 IFEO_DEBUGGER = "systray.exe"   # harmless Windows stub: blocked exe just never opens
 TASK = "AveGuard"
 NOWIN = 0x08000000              # CREATE_NO_WINDOW for helper commands
+
+# Installed copy (per user, no admin needed to install): Start menu entry + "Installed apps" entry.
+_LAD = os.environ.get("LOCALAPPDATA") or ""
+INSTALL_DIR = os.path.join(_LAD, "Programs", APP) if _LAD else ""
+INSTALL_EXE = os.path.join(INSTALL_DIR, "Ave.exe") if INSTALL_DIR else ""
+START_LNK = os.path.join(os.environ.get("APPDATA") or "", "Microsoft", "Windows", "Start Menu",
+                         "Programs", APP + ".lnk")
+UNINST_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\Ave"
+AUMID = "Ave.Oblivionis"        # one taskbar identity for every copy (main, spare, guard)
+ICON_FILE = os.path.join(DATA, "ave1.ico")   # rename (ave2.ico...) whenever the icon art changes
 
 # Never killable, whatever the lists say (Task Manager stays free on purpose).
 PROTECTED = {
@@ -1527,6 +1541,623 @@ class Updater:
 
 
 # =============================================================================
+# Icon - drawn in code (no image files): matte tile, track, red arc + head dot, block cursor
+# =============================================================================
+
+def _rgb(c):
+    return tuple(int(c[i:i + 2], 16) for i in (1, 3, 5))
+
+
+def icon_pixels(n):
+    """n x n RGBA rows. Shapes are drawn from signed distances, so edges are
+    anti-aliased at every size. Small sizes get thicker strokes so they stay legible."""
+    bg, edge, track, red = _rgb(BG), _rgb(LINE), _rgb(RING_TRACK), _rgb(ACCENT_HI)
+    small = n <= 24
+    c = n / 2.0
+    rad = 0.2 * n                                   # tile corner radius
+    R = n * (0.30 if small else 0.31)               # ring radius
+    tw = max(1.0, n * (0.05 if small else 0.035))   # track width
+    aw = max(2.0, n * (0.11 if small else 0.075))   # arc width
+    span = 300.0                                    # arc: clockwise from 12 o'clock
+    end = math.radians(90 - span)
+    ex, ey = c + R * math.cos(end), c - R * math.sin(end)
+    sx, sy = c, c - R
+    dot = aw * 0.78
+    bw, bh = n * (0.12 if small else 0.10), n * (0.22 if small else 0.19)
+    hair = max(1.0, n / 64.0)
+
+    def cov(d):
+        return min(1.0, max(0.0, 0.5 - d))
+
+    def box(px, py, hw, hh, r=0.0):
+        qx, qy = abs(px - c) - (hw - r), abs(py - c) - (hh - r)
+        return math.hypot(max(qx, 0), max(qy, 0)) + min(max(qx, qy), 0) - r
+
+    rows = []
+    for y in range(n):
+        row = []
+        for x in range(n):
+            px, py = x + 0.5, y + 0.5
+            d_tile = box(px, py, c, c, rad)
+            a = cov(d_tile)
+            if a <= 0:
+                row.append((0, 0, 0, 0))
+                continue
+            col = list(bg)
+
+            def over(rgb, k):
+                if k > 0:
+                    for i in range(3):
+                        col[i] = col[i] * (1 - k) + rgb[i] * k
+
+            if not small:
+                over(edge, 0.9 * cov(abs(d_tile + hair / 2) - hair / 2))
+            dx, dy = px - c, py - c
+            r = math.hypot(dx, dy)
+            over(track, cov(abs(r - R) - tw / 2))
+            ang = (90 - math.degrees(math.atan2(-dy, dx))) % 360
+            if ang <= span:
+                d_arc = abs(r - R) - aw / 2
+            else:
+                d_arc = min(math.hypot(px - sx, py - sy), math.hypot(px - ex, py - ey)) - aw / 2
+            over(red, cov(d_arc))
+            over(red, cov(math.hypot(px - ex, py - ey) - dot))
+            over(red, cov(box(px, py, bw / 2, bh / 2)))
+            row.append((int(round(col[0])), int(round(col[1])), int(round(col[2])),
+                        int(round(a * 255))))
+        rows.append(row)
+    return rows
+
+
+def png_bytes(rows):
+    n = len(rows)
+    raw = b"".join(b"\0" + bytes(v for p in row for v in p) for row in rows)
+
+    def chunk(t, d):
+        return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xffffffff)
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", n, n, 8, 6, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b""))
+
+
+def ico_bytes(sizes):
+    """A Windows .ico: small sizes as 32-bit bitmaps, 256 as PNG."""
+    imgs = []
+    for n in sizes:
+        rows = icon_pixels(n)
+        if n >= 256:
+            data = png_bytes(rows)
+        else:
+            hdr = struct.pack("<IiiHHIIiiII", 40, n, n * 2, 1, 32, 0, 0, 0, 0, 0, 0)
+            px = b"".join(bytes((b, g, r, a)) for row in reversed(rows) for (r, g, b, a) in row)
+            data = hdr + px + b"\0" * (((n + 31) // 32) * 4 * n)    # AND mask: unused (alpha)
+        imgs.append((n, data))
+    out = struct.pack("<HHH", 0, 1, len(imgs))
+    off = 6 + 16 * len(imgs)
+    for n, d in imgs:
+        out += struct.pack("<BBBBHHII", n % 256, n % 256, 0, 0, 1, 32, len(d), off)
+        off += len(d)
+    return out + b"".join(d for _, d in imgs)
+
+
+ICO_SIZES = (16, 20, 24, 32, 40, 48, 64, 256)    # the exe's icon (built by CI with --make-icon)
+TRAY_SIZES = (16, 20, 24, 32, 40, 48)
+
+
+def ensure_icon():
+    """The tray icon file in DATA (drawn once, then reused). Returns its path or ''."""
+    try:
+        if not os.path.exists(ICON_FILE):
+            os.makedirs(DATA, exist_ok=True)
+            with open(ICON_FILE + ".part", "wb") as f:
+                f.write(ico_bytes(TRAY_SIZES))
+            os.replace(ICON_FILE + ".part", ICON_FILE)
+        return ICON_FILE
+    except Exception:
+        return ""
+
+
+# =============================================================================
+# Install: a per-user copy in %LOCALAPPDATA%\Programs\Ave, a Start menu shortcut
+# (pin it from there) and an "Installed apps" entry. No admin needed to install.
+# =============================================================================
+
+def set_app_id():
+    """Every copy (main, hidden spare, AveGuard) shows as ONE app on the taskbar,
+    the same one as the pinned shortcut."""
+    if IS_WIN:
+        try:
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(ctypes.c_wchar_p(AUMID))
+        except Exception:
+            pass
+
+
+def _same(a, b):
+    try:
+        return bool(a and b) and os.path.normcase(os.path.abspath(a)) == os.path.normcase(os.path.abspath(b))
+    except Exception:
+        return False
+
+
+class _GUID(ctypes.Structure):
+    _fields_ = [("a", ctypes.c_uint32), ("b", ctypes.c_uint16), ("c", ctypes.c_uint16),
+                ("d", ctypes.c_ubyte * 8)]
+
+
+def _guid(s):
+    g = _GUID()
+    ctypes.windll.ole32.CLSIDFromString(ctypes.c_wchar_p(s), ctypes.byref(g))
+    return g
+
+
+def _vcall(obj, idx, argtypes=(), *args):
+    """Call method #idx of a COM interface pointer. Returns the HRESULT."""
+    vtbl = ctypes.cast(obj, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))).contents
+    fn = ctypes.WINFUNCTYPE(ctypes.c_long, ctypes.c_void_p, *argtypes)(vtbl[idx])
+    return fn(obj, *args)
+
+
+def make_shortcut(lnk, target, args="", icon="", runas=True, app_id=AUMID):
+    """Write a .lnk with the app id (so the pinned icon and the running window are one)
+    and, if runas, 'Run as administrator' ticked. Returns a short report string;
+    starts with 'ok' on success."""
+    if not IS_WIN:
+        return "skip: not windows"
+    P = ctypes.c_void_p
+    W = ctypes.c_wchar_p
+    ole = ctypes.WinDLL("ole32")
+    ole.CoInitialize.argtypes = [P]
+    ole.CoCreateInstance.argtypes = [P, P, ctypes.c_uint32, P, P]
+    ole.CoCreateInstance.restype = ctypes.c_long
+    ole.CoInitialize(None)
+    clsid = _guid("{00021401-0000-0000-C000-000000000046}")      # ShellLink
+    iid_link = _guid("{000214F9-0000-0000-C000-000000000046}")   # IShellLinkW
+    iid_data = _guid("{45E2B4AE-B1C3-11D0-B92F-00A0C90312E1}")   # IShellLinkDataList
+    iid_prop = _guid("{886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99}")   # IPropertyStore
+    iid_file = _guid("{0000010B-0000-0000-C000-000000000046}")   # IPersistFile
+    link, data, prop, pf = P(), P(), P(), P()
+    try:
+        hr = ole.CoCreateInstance(ctypes.addressof(clsid), None, 1, ctypes.addressof(iid_link),
+                                  ctypes.addressof(link))
+        if hr != 0 or not link.value:
+            return "fail: CoCreateInstance %x" % (hr & 0xffffffff)
+        L = link.value
+        _vcall(L, 20, (W,), target)                                # SetPath
+        _vcall(L, 11, (W,), args)                                  # SetArguments
+        _vcall(L, 9, (W,), os.path.dirname(target))                # SetWorkingDirectory
+        _vcall(L, 7, (W,), "Ave - focus timer")                    # SetDescription
+        _vcall(L, 17, (W, ctypes.c_int), icon or target, 0)        # SetIconLocation
+        notes = []
+        if runas and _vcall(L, 0, (P, P), ctypes.addressof(iid_data), ctypes.addressof(data)) == 0:
+            flags = ctypes.c_uint32(0)
+            _vcall(data.value, 6, (P,), ctypes.addressof(flags))   # GetFlags
+            hr = _vcall(data.value, 7, (ctypes.c_uint32,), flags.value | 0x2000)   # SLDF_RUNAS_USER
+            notes.append("runas %x" % (hr & 0xffffffff))
+        if app_id and _vcall(L, 0, (P, P), ctypes.addressof(iid_prop), ctypes.addressof(prop)) == 0:
+            class PKEY(ctypes.Structure):
+                _fields_ = [("fmtid", _GUID), ("pid", ctypes.c_uint32)]
+
+            class PROPVARIANT(ctypes.Structure):
+                _fields_ = [("vt", ctypes.c_ushort), ("r1", ctypes.c_ushort), ("r2", ctypes.c_ushort),
+                            ("r3", ctypes.c_ushort), ("p", P), ("pad", P)]
+            key = PKEY(_guid("{9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3}"), 5)   # AppUserModel.ID
+            buf = ctypes.create_unicode_buffer(app_id)
+            pv = PROPVARIANT()
+            pv.vt = 31                                             # VT_LPWSTR
+            pv.p = ctypes.addressof(buf)
+            hr = _vcall(prop.value, 6, (P, P), ctypes.addressof(key), ctypes.addressof(pv))  # SetValue
+            hr2 = _vcall(prop.value, 7)                                                     # Commit
+            notes.append("appid %x/%x" % (hr & 0xffffffff, hr2 & 0xffffffff))
+        if _vcall(L, 0, (P, P), ctypes.addressof(iid_file), ctypes.addressof(pf)) != 0:
+            return "fail: no IPersistFile"
+        os.makedirs(os.path.dirname(lnk), exist_ok=True)
+        hr = _vcall(pf.value, 6, (W, ctypes.c_int), lnk, 1)       # Save
+        if hr != 0:
+            return "fail: Save %x" % (hr & 0xffffffff)
+        return "ok " + " ".join(notes)
+    except Exception as e:
+        return "fail: %r" % (e,)
+    finally:
+        for o in (pf, prop, data, link):
+            if o.value:
+                try:
+                    _vcall(o.value, 2)                             # Release
+                except Exception:
+                    pass
+
+
+def installed_version():
+    if not IS_WIN:
+        return ""
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, UNINST_KEY) as k:
+            return str(winreg.QueryValueEx(k, "DisplayVersion")[0])
+    except Exception:
+        return ""
+
+
+def register_install():
+    """Start menu shortcut + 'Installed apps' entry for the installed copy. Cheap, so the
+    installed Ave refreshes it on every normal launch (keeps the version right after updates)."""
+    if not (IS_WIN and FROZEN and INSTALL_EXE and os.path.exists(INSTALL_EXE)):
+        return
+    if not os.path.exists(START_LNK):
+        make_shortcut(START_LNK, INSTALL_EXE)
+    try:
+        import winreg
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, UNINST_KEY) as k:
+            for name, val in (("DisplayName", APP), ("DisplayVersion", VERSION),
+                              ("Publisher", "Oblivionis"), ("DisplayIcon", INSTALL_EXE + ",0"),
+                              ("InstallLocation", INSTALL_DIR),
+                              ("UninstallString", '"%s" --uninstall' % INSTALL_EXE)):
+                winreg.SetValueEx(k, name, 0, winreg.REG_SZ, val)
+            for name in ("NoModify", "NoRepair"):
+                winreg.SetValueEx(k, name, 0, winreg.REG_DWORD, 1)
+            try:
+                kb = os.path.getsize(INSTALL_EXE) // 1024
+                winreg.SetValueEx(k, "EstimatedSize", 0, winreg.REG_DWORD, kb)
+            except OSError:
+                pass
+    except Exception:
+        pass
+
+
+def install_wanted():
+    """True when this is a downloaded Ave.exe (not the installed copy or a hidden spare)."""
+    return (IS_WIN and FROZEN and bool(INSTALL_EXE)
+            and not any(_same(SELF, p) for p in (INSTALL_EXE, BACKUP, WATCH_EXE)))
+
+
+def install_self():
+    """Copy this exe into the install folder (never over a newer installed version),
+    then register it. True if an installed Ave.exe is ready to start."""
+    try:
+        os.makedirs(INSTALL_DIR, exist_ok=True)
+        have = installed_version()
+        if not os.path.exists(INSTALL_EXE) or parse_ver(VERSION) >= parse_ver(have):
+            shutil.copy2(SELF, INSTALL_EXE + ".part")
+            os.replace(INSTALL_EXE + ".part", INSTALL_EXE)
+        register_install()
+        return os.path.exists(INSTALL_EXE)
+    except Exception:
+        return False
+
+
+def _safe_dir(d):
+    """Only Ave's own folders may be deleted by the uninstaller."""
+    if not (d and _LAD):
+        return False
+    ok = {os.path.normcase(os.path.join(_LAD, APP)), os.path.normcase(os.path.join(_LAD, "Programs", APP))}
+    return os.path.normcase(os.path.abspath(d)) in ok
+
+
+def uninstall():
+    """Run by 'Installed apps > Uninstall'. Refuses while a session runs - this is
+    not a way out. Otherwise: lifts everything, removes Ave and its data."""
+    if not IS_WIN:
+        return
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        if state_load().get("active"):
+            messagebox.showerror(APP, "Not while the mask is on.\n\n"
+                                      "Finish the session first. Then you may try to forget me.")
+            return
+        if not is_admin():
+            # hosts, launch blocks and the guard task need admin to be removed for certain
+            if ctypes.windll.shell32.ShellExecuteW(None, "runas", SELF, "--uninstall", None, 1) <= 32:
+                messagebox.showerror(APP, "Without administrator rights I cannot leave cleanly.\n\n"
+                                          "Accept the prompt next time.")
+            return
+        if not messagebox.askyesno(APP, "Remove Ave from this PC?\n\n"
+                                        "Your presets and lists leave with me. Nothing stays blocked."):
+            return
+        me = {os.getpid(), os.getppid()}
+        roots = [os.path.normcase(d) for d in (INSTALL_DIR, DATA) if d]
+        for pid, name, _pp in processes():
+            if pid in me or name not in ("ave.exe", "aveguard.exe"):
+                continue
+            p = os.path.normcase(image_path(pid) or "")
+            if any(p.startswith(r + os.sep) for r in roots):
+                kill(pid)
+        cleanup_everything()
+        for f in (START_LNK,):
+            try:
+                os.remove(f)
+            except OSError:
+                pass
+        import winreg
+        for key in (UNINST_KEY, REG_APP):
+            try:
+                winreg.DeleteKey(winreg.HKEY_CURRENT_USER, key)
+            except OSError:
+                pass
+        dirs = [d for d in (INSTALL_DIR, DATA) if _safe_dir(d)]
+        bat = os.path.join(os.environ.get("TEMP") or _LAD, "ave_uninstall.bat")
+        lines = ["@echo off", "for /l %%i in (1,1,30) do ("]
+        lines += ['  rmdir /s /q "%s" >nul 2>&1' % d for d in dirs]
+        lines += ["  " + " ".join('if not exist "%s"' % d for d in dirs) + " goto done",
+                  "  ping -n 2 127.0.0.1 >nul", ")", ":done", 'del "%~f0"']
+        with open(bat, "w", encoding="mbcs", errors="ignore", newline="") as f:
+            f.write("\r\n".join(lines) + "\r\n")
+        messagebox.showinfo(APP, "Gone. The stage is empty.\n\n"
+                                 "If you ever want me back, you know where the releases are.")
+        # the files go once this process has exited (the helper retries for ~30 s)
+        subprocess.Popen(["cmd", "/c", bat], creationflags=NOWIN | DETACHED, close_fds=True)
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass
+
+
+# =============================================================================
+# Tray icon (behind the taskbar's ^ arrow). Its own tiny Windows message loop on a
+# thread; clicks reach the UI through a queue, because tkinter is not thread-safe.
+# =============================================================================
+
+class Tray:
+    CLASS = "AveTrayWnd"
+    WM_TRAY = 0x8001        # WM_APP + 1: icon clicks
+    WM_SHOW = 0x8002        # WM_APP + 2: another Ave launch asks us to come forward
+    ID_OPEN, ID_QUIT = 1, 2
+
+    def __init__(self):
+        self.q = queue.Queue()
+        self.locked = False     # True while a session runs: no "quit" in the menu
+        self.tip = "ave"
+        self.hwnd = None
+        self.ok = False
+        self._ready = threading.Event()
+
+    def start(self):
+        if not IS_WIN:
+            return False
+        threading.Thread(target=self._run, daemon=True).start()
+        self._ready.wait(3.0)
+        return self.ok
+
+    # -- runs on the tray thread ---------------------------------------------
+    def _api(self):
+        from ctypes import wintypes as w
+        P, U, WP, LP = ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t
+        u = ctypes.WinDLL("user32", use_last_error=True)
+        s = ctypes.WinDLL("shell32", use_last_error=True)
+        k = ctypes.WinDLL("kernel32", use_last_error=True)
+        self.WNDPROC = ctypes.WINFUNCTYPE(LP, P, U, WP, LP)
+
+        class WNDCLASSEXW(ctypes.Structure):
+            _fields_ = [("cbSize", U), ("style", U), ("lpfnWndProc", self.WNDPROC),
+                        ("cbClsExtra", ctypes.c_int), ("cbWndExtra", ctypes.c_int),
+                        ("hInstance", P), ("hIcon", P), ("hCursor", P), ("hbrBackground", P),
+                        ("lpszMenuName", ctypes.c_wchar_p), ("lpszClassName", ctypes.c_wchar_p),
+                        ("hIconSm", P)]
+
+        class NOTIFYICONDATAW(ctypes.Structure):
+            _fields_ = [("cbSize", ctypes.c_uint32), ("hWnd", P), ("uID", ctypes.c_uint32),
+                        ("uFlags", ctypes.c_uint32), ("uCallbackMessage", ctypes.c_uint32),
+                        ("hIcon", P), ("szTip", ctypes.c_wchar * 128),
+                        ("dwState", ctypes.c_uint32), ("dwStateMask", ctypes.c_uint32),
+                        ("szInfo", ctypes.c_wchar * 256), ("uVersion", ctypes.c_uint32),
+                        ("szInfoTitle", ctypes.c_wchar * 64), ("dwInfoFlags", ctypes.c_uint32),
+                        ("guidItem", _GUID), ("hBalloonIcon", P)]
+        self.WNDCLASSEXW, self.NID = WNDCLASSEXW, NOTIFYICONDATAW
+        k.GetModuleHandleW.restype = P
+        k.GetModuleHandleW.argtypes = [ctypes.c_wchar_p]
+        u.DefWindowProcW.restype = LP
+        u.DefWindowProcW.argtypes = [P, U, WP, LP]
+        u.RegisterClassExW.argtypes = [P]
+        u.RegisterClassExW.restype = ctypes.c_uint16
+        u.CreateWindowExW.restype = P
+        u.CreateWindowExW.argtypes = [ctypes.c_uint32, ctypes.c_wchar_p, ctypes.c_wchar_p,
+                                      ctypes.c_uint32, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                                      ctypes.c_int, P, P, P, P]
+        u.RegisterWindowMessageW.restype = U
+        u.RegisterWindowMessageW.argtypes = [ctypes.c_wchar_p]
+        u.ChangeWindowMessageFilterEx.argtypes = [P, U, ctypes.c_uint32, P]
+        u.LoadImageW.restype = P
+        u.LoadImageW.argtypes = [P, ctypes.c_wchar_p, U, ctypes.c_int, ctypes.c_int, U]
+        u.LoadIconW.restype = P
+        u.LoadIconW.argtypes = [P, P]
+        u.GetSystemMetrics.argtypes = [ctypes.c_int]
+        u.CreatePopupMenu.restype = P
+        u.AppendMenuW.argtypes = [P, U, ctypes.c_size_t, ctypes.c_wchar_p]
+        u.TrackPopupMenu.argtypes = [P, U, ctypes.c_int, ctypes.c_int, ctypes.c_int, P, P]
+        u.TrackPopupMenu.restype = ctypes.c_int
+        u.DestroyMenu.argtypes = [P]
+        u.GetCursorPos.argtypes = [ctypes.POINTER(w.POINT)]
+        u.SetForegroundWindow.argtypes = [P]
+        u.PostMessageW.argtypes = [P, U, WP, LP]
+        u.DestroyWindow.argtypes = [P]
+        u.GetMessageW.argtypes = [ctypes.POINTER(w.MSG), P, U, U]
+        u.GetMessageW.restype = ctypes.c_int
+        u.TranslateMessage.argtypes = [ctypes.POINTER(w.MSG)]
+        u.DispatchMessageW.argtypes = [ctypes.POINTER(w.MSG)]
+        u.DispatchMessageW.restype = LP
+        s.Shell_NotifyIconW.argtypes = [ctypes.c_uint32, P]
+        s.Shell_NotifyIconW.restype = ctypes.c_int
+        self.u, self.s, self.k, self.w = u, s, k, w
+
+    def _run(self):
+        try:
+            self._api()
+            u, k = self.u, self.k
+            hinst = k.GetModuleHandleW(None)
+            self._proc = self.WNDPROC(self._wndproc)        # keep a reference: Windows calls it
+            wc = self.WNDCLASSEXW()
+            wc.cbSize = ctypes.sizeof(wc)
+            wc.lpfnWndProc = self._proc
+            wc.hInstance = hinst
+            wc.lpszClassName = self.CLASS
+            u.RegisterClassExW(ctypes.addressof(wc))
+            self.hwnd = u.CreateWindowExW(0, self.CLASS, "ave-tray", 0, 0, 0, 0, 0,
+                                          None, None, hinst, None)
+            if not self.hwnd:
+                return
+            self.TASKBAR = u.RegisterWindowMessageW("TaskbarCreated")   # Explorer restarted
+            for m in (self.WM_TRAY, self.WM_SHOW, self.TASKBAR):        # let them through to an
+                try:                                                     # elevated (admin) Ave
+                    u.ChangeWindowMessageFilterEx(self.hwnd, m, 1, None)
+                except Exception:
+                    pass
+            n = u.GetSystemMetrics(49) or 16                             # SM_CXSMICON
+            path = ensure_icon()
+            self.hicon = (u.LoadImageW(None, path, 1, n, n, 0x10) if path else None) \
+                or u.LoadIconW(None, ctypes.c_void_p(32512))             # IDI_APPLICATION
+            self.nid = self.NID()
+            self.nid.cbSize = ctypes.sizeof(self.nid)
+            self.nid.hWnd = self.hwnd
+            self.nid.uID = 1
+            self.nid.uCallbackMessage = self.WM_TRAY
+            self.nid.hIcon = self.hicon
+            self.ok = self._add()
+        except Exception:
+            self.ok = False
+        finally:
+            self._ready.set()
+        if not self.hwnd:
+            return
+        msg = self.w.MSG()
+        while self.u.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
+            self.u.TranslateMessage(ctypes.byref(msg))
+            self.u.DispatchMessageW(ctypes.byref(msg))
+
+    def _add(self):
+        self.nid.uFlags = 0x1 | 0x2 | 0x4                     # MESSAGE | ICON | TIP
+        self.nid.szTip = self.tip[:127]
+        return bool(self.s.Shell_NotifyIconW(0, ctypes.addressof(self.nid)))      # NIM_ADD
+
+    def _wndproc(self, hwnd, msg, wp, lp):
+        try:
+            if msg == self.WM_TRAY:
+                ev = lp & 0xFFFF
+                if ev in (0x0202, 0x0203):                    # left click up / double click
+                    self.q.put("show")
+                elif ev == 0x0205:                            # right click up
+                    self._menu(hwnd)
+                return 0
+            if msg == self.WM_SHOW:
+                self.q.put("show")
+                return 0
+            if msg == getattr(self, "TASKBAR", -1):            # Explorer (re)started
+                self.ok = self._add()
+                return 0
+            if msg == 0x0010:                                 # WM_CLOSE
+                self.u.DestroyWindow(hwnd)
+                return 0
+            if msg == 0x0002:                                 # WM_DESTROY
+                self._delete()
+                self.u.PostQuitMessage(0)
+                return 0
+        except Exception:
+            pass
+        return self.u.DefWindowProcW(hwnd, msg, wp, lp)
+
+    def _menu(self, hwnd):
+        u = self.u
+        m = u.CreatePopupMenu()
+        if not m:
+            return
+        try:
+            u.AppendMenuW(m, 0, self.ID_OPEN, "open ave")
+            u.AppendMenuW(m, 0x800, 0, None)                  # separator
+            if self.locked:
+                u.AppendMenuW(m, 0x1, 0, "the mask stays on")   # greyed: no way out here
+            else:
+                u.AppendMenuW(m, 0, self.ID_QUIT, "quit")
+            pt = self.w.POINT()
+            u.GetCursorPos(ctypes.byref(pt))
+            u.SetForegroundWindow(hwnd)
+            cmd = u.TrackPopupMenu(m, 0x0100 | 0x0080 | 0x0002 | 0x0020, pt.x, pt.y, 0, hwnd, None)
+            u.PostMessageW(hwnd, 0, 0, 0)
+            if cmd == self.ID_OPEN:
+                self.q.put("show")
+            elif cmd == self.ID_QUIT and not self.locked:
+                self.q.put("quit")
+        finally:
+            u.DestroyMenu(m)
+
+    def _delete(self):
+        if self.ok:
+            self.ok = False
+            try:
+                self.s.Shell_NotifyIconW(2, ctypes.addressof(self.nid))           # NIM_DELETE
+            except Exception:
+                pass
+
+    # -- safe to call from the UI thread -------------------------------------
+    def set_tip(self, text):
+        if not self.ok or text == self.tip:
+            return
+        self.tip = text
+        try:
+            self.nid.uFlags = 0x4                                                  # TIP
+            self.nid.szTip = text[:127]
+            self.s.Shell_NotifyIconW(1, ctypes.addressof(self.nid))               # NIM_MODIFY
+        except Exception:
+            pass
+
+    def notify(self, title, text):
+        """One quiet balloon/toast from the tray icon."""
+        if not self.ok:
+            return
+        try:
+            self.nid.uFlags = 0x10                                                 # INFO
+            self.nid.szInfoTitle = title[:63]
+            self.nid.szInfo = text[:255]
+            self.nid.dwInfoFlags = 0x10                                            # NIIF_NOSOUND
+            self.s.Shell_NotifyIconW(1, ctypes.addressof(self.nid))
+        except Exception:
+            pass
+
+    def stop(self):
+        self._delete()
+        if self.hwnd:
+            try:
+                self.u.PostMessageW(self.hwnd, 0x0010, 0, 0)
+            except Exception:
+                pass
+
+
+def selftest_shell(out):
+    """CI only (a real Windows runner): exercise the icon, shortcut and tray code
+    and write what happened to `out`. Exit code 1 if the shortcut could not be made."""
+    lines, bad = [], False
+    d = os.path.dirname(os.path.abspath(out))
+    try:
+        ico = os.path.join(d, "selftest.ico")
+        with open(ico, "wb") as f:
+            f.write(ico_bytes(TRAY_SIZES))
+        u = ctypes.WinDLL("user32")
+        u.LoadImageW.restype = ctypes.c_void_p
+        u.LoadImageW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_uint, ctypes.c_int,
+                                 ctypes.c_int, ctypes.c_uint]
+        h = u.LoadImageW(None, ico, 1, 16, 16, 0x10)
+        lines.append("icon load: %s" % ("ok" if h else "FAIL"))
+        bad |= not h
+    except Exception as e:
+        lines.append("icon: FAIL %r" % (e,))
+        bad = True
+    r = make_shortcut(os.path.join(d, "selftest.lnk"), SELF, "--selftest")
+    lines.append("shortcut: " + r)
+    bad |= not r.startswith("ok")
+    try:
+        t = Tray()
+        ok = t.start()
+        lines.append("tray: %s (hwnd %s)" % ("ok" if ok else "no icon (no shell on runner?)",
+                                              "yes" if t.hwnd else "no"))
+        t.set_tip("ave - selftest")
+        t.stop()
+    except Exception as e:
+        lines.append("tray: FAIL %r" % (e,))
+        bad = True
+    lines.append("app id: %s" % ("set" if IS_WIN else "skip"))
+    with open(out, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    sys.exit(1 if bad else 0)
+
+
+# =============================================================================
 # UI
 # =============================================================================
 
@@ -1916,6 +2547,12 @@ class App:
 
         root.title(APP)
         root.configure(bg=BG)
+        try:                                   # our own icon, not Tk's feather
+            self._icons = [tk.PhotoImage(data=base64.b64encode(png_bytes(icon_pixels(n))))
+                           for n in (64, 48, 32, 16)]
+            root.iconphoto(True, *self._icons)
+        except Exception:
+            pass
         root.geometry("%dx%d" % (S(460), S(700)))
         root.minsize(S(420), S(640))
         dark_titlebar(root)
@@ -1936,9 +2573,16 @@ class App:
         self.oracle.on_click = self._her_click
 
         root.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.tray = Tray()
+        self.tray.start()                      # tray.ok: icon shown (False off Windows / no shell yet)
+        if self.tray.hwnd:                     # Explorer may come up later and the icon with it
+            self.root.after(250, self._tray_poll)
         self._resume(state)
         self.updater = Updater()
-        if "--updated" in sys.argv and not self.session.active:
+        if "--installed" in sys.argv and not self.session.active:
+            self.oracle.say("I live in your Start menu now. Pin me where you cannot ignore me. "
+                            "The old copy can go.")
+        elif "--updated" in sys.argv and not self.session.active:
             self.oracle.say("A new costume. The same mask. I am %s now, and I remember everything." % VERSION)
         elif self.cfg.get("auto_update") and not self.session.active and "--guard" not in sys.argv:
             self.updater.start()
@@ -2461,7 +3105,48 @@ class App:
             beep(330, 120)
             self.oracle.say_from(REFUSE)
             return
+        if self.tray.ok:                       # no session: slip behind the taskbar arrow
+            self.root.withdraw()
+            if not self.cfg.get("tray_hint"):
+                self.cfg["tray_hint"] = True
+                self._save_cfg()
+                self.tray.notify("ave", "I am still here, behind the arrow. Right-click me to truly leave.")
+            return
         self.root.destroy()
+
+    def _quit(self):
+        """'quit' from the tray menu. Never during a session."""
+        if self.session.active:
+            self._raise()
+            self.oracle.say_from(REFUSE)
+            return
+        self.tray.stop()
+        self.root.destroy()
+
+    def _tray_poll(self):
+        """Tray clicks arrive here (UI thread); also keeps the hover text current."""
+        try:
+            while True:
+                a = self.tray.q.get_nowait()
+                if a == "show":
+                    self._raise()
+                elif a == "quit":
+                    self._quit()
+                    return
+        except queue.Empty:
+            pass
+        s = self.session
+        self.tray.locked = s.active
+        if not s.active:
+            tip = "ave - ready"
+        elif s.on_break:
+            tip = "ave - on break"
+        else:
+            m, sec = divmod(s.remaining(), 60)
+            h, m = divmod(m, 60)
+            tip = "ave - %s left" % (("%d:%02d:%02d" % (h, m, sec)) if h else ("%d:%02d" % (m, sec)))
+        self.tray.set_tip(tip)
+        self.root.after(250, self._tray_poll)
 
     # --------------------------------------------------------------- settings
     def _build_settings(self):
@@ -2849,9 +3534,29 @@ def run_watcher(target):
         k.CloseHandle(ctypes.c_void_p(h))
 
 
+def ave_running():
+    """True if a main Ave already holds the single-instance lock."""
+    if not IS_WIN:
+        return False
+    h = _k32.OpenMutexW(0x00100000, False, "Local\\AveSingleton")   # SYNCHRONIZE
+    if h:
+        _k32.CloseHandle(h)
+        return True
+    return False
+
+
+def relaunch_installed():
+    """Start the installed Ave (same rights as this one) and let this copy go."""
+    return _run('"%s" --installed' % INSTALL_EXE)
+
+
 def focus_existing():
     try:
         u = ctypes.windll.user32
+        t = u.FindWindowW(Tray.CLASS, None)   # the running Ave's tray window: ask it to come forward
+        if t:
+            u.PostMessageW(t, Tray.WM_SHOW, 0, 0)
+            return
         hwnd = u.FindWindowW(None, APP)
         if hwnd:
             u.ShowWindow(hwnd, 9)
@@ -2885,11 +3590,27 @@ def main():
     if "--selftest" in sys.argv:          # build check only: confirm the exe runs, then exit
         print("%s %s" % (APP, VERSION))
         return
+    if "--make-icon" in sys.argv:         # build step: draw the exe's icon file
+        i = sys.argv.index("--make-icon")
+        with open(sys.argv[i + 1], "wb") as f:
+            f.write(ico_bytes(ICO_SIZES))
+        return
+    set_app_id()
+    if "--selftest-shell" in sys.argv:    # CI only: shortcut / tray / icon on real Windows
+        selftest_shell(sys.argv[sys.argv.index("--selftest-shell") + 1])
+        return
+    if "--uninstall" in sys.argv:
+        uninstall()
+        return
     if "--watch" in sys.argv:
         i = sys.argv.index("--watch")
         run_watcher(sys.argv[i + 1] if i + 1 < len(sys.argv) else 0)
         return
     guard = "--guard" in sys.argv
+    if not guard and install_wanted() and not state_load().get("active") and not ave_running():
+        # a downloaded Ave.exe: install it (or refresh the install), then hand over to it
+        if install_self() and relaunch_installed():
+            return
     if not acquire_lock():
         if not guard:
             focus_existing()
@@ -2904,6 +3625,8 @@ def main():
         return                      # login copy without admin: the elevated guard takes over
     if not st.get("active"):
         ensure_backup()
+        if not guard and _same(SELF, INSTALL_EXE):
+            register_install()          # keep Start menu + Installed apps current
     if IS_WIN:
         try:
             ctypes.windll.shcore.SetProcessDpiAwareness(1)
@@ -2911,8 +3634,9 @@ def main():
             pass
     root = tk.Tk()
     setup_fonts(root)
-    App(root, st)
+    app = App(root, st)
     root.mainloop()
+    app.tray.stop()                     # no ghost icon left behind the arrow
 
 
 if __name__ == "__main__":
