@@ -44,7 +44,7 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 4. Purpose: also tests the update restart fix (v4.0.13 → this release should restart by itself).
 
 ## 5i. Way-out code hidden at typing (BUILT, release pending)
-- The 3-digit code shows for 10 s at the start, then vanishes; typed from memory with nothing on screen.
+- The 10-digit code shows for 10 s at the start, then vanishes; typed from memory with nothing on screen.
   Wrong guess re-flashes a new code and waits again. Still 50 clicks + 5-min wait; still completable.
 
 ## 5h. Way-out code: random 3 digits (SHIPPED as v4.0.28)
