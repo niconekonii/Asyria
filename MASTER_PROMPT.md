@@ -43,7 +43,7 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 3. New start sound (minor, rising) and a different end sound (major, falling).
 4. Purpose: also tests the update restart fix (v4.0.13 → this release should restart by itself).
 
-## 5m. Hide during a session (hotfix)
+## 5m. Hide during a session (SHIPPED as v4.0.45)
 - X / Alt+F4 during a session hides Ave to the tray instead of refusing. The countdown, enforcement, heal, guard and
   watchdog keep running. Tray menu still has no quit ("the mask stays on"); `_quit()` still refuses.
 - No tray icon → X minimizes to the taskbar instead (never vanishes without a way back).

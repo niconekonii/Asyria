@@ -3,7 +3,7 @@
 Newest on top. Format and rules: see `CLAUDE.md` §6.
 Release numbers come from the GitHub build (`v4.0.<run_number>`).
 
-## v4.0.? — 2026-11-21 — Hide during a session
+## v4.0.45 — 2026-11-21 — Hide during a session
 - **X now hides Ave during a session** (to the tray, behind the taskbar arrow) instead of refusing. Nothing
   ends: the countdown, program/site blocking, self-heal, the guard task and the watchdog all keep running.
   Bring it back by clicking the tray icon or launching Ave again.
