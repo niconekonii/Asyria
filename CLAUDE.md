@@ -66,7 +66,7 @@ Hard rules (the user set these; do not break them):
 2. While a focus session runs, chosen programs are closed/blocked and chosen websites blocked.
    Breaks are taken by hand (Break button, up to the preset's Break Count), and the
    countdown pauses during them. Built for one user: no accounts, no profiles.
-3. **One deliberately-grueling way out:** no casual stop/cancel, close refused, settings locked, survives reboot,
+3. **One deliberately-grueling way out:** no casual stop/cancel, X only hides it to the tray (no quit), settings locked, survives reboot,
    relaunches itself if killed.
 4. **Fail-safe above all:** if any blocker fails, fall back to plain process killing;
    **nothing may stay blocked after a session ends.** A session ending lifts every block directly, and the
@@ -172,8 +172,9 @@ Top to bottom:
     -> `_tick` (60 s wait) -> `_to_type` (random 40-char phrase) -> `_check` (wrong = regenerate + SCORN;
     right = `_commit` -> `Session.finish`) / `_cancel` (STAYED). The 10-digit code (`LEN=10`) is shown only for `SURRENDER_FLASH=10 s` at the start (`_enter_wait`), then hidden through the wait and the typing — entered from memory; a wrong guess re-flashes a new code. Constants `SURRENDER_CLICKS=50`, `WAIT=300 s`.
   Loops: `_loop` 1 s UI and countdown, `_poll` 2 s enforce, `_heal` 30 s, `_tray_poll` 250 ms (tray queue + hover text).
-  Close: in a session X is refused; idle + tray up → `withdraw()` to the tray (one-time notice, `cfg.tray_hint`);
-  no tray → X quits. `_quit()` (tray menu) refuses during a session.
+  Close: in a session X hides to the tray (`withdraw()`, one-time notice `cfg.hide_hint`; no tray → `iconify()`),
+  cancels a running way-out ordeal (STAYED), and ends nothing; idle + tray up → `withdraw()` (one-time notice
+  `cfg.tray_hint`); idle, no tray → X quits. `_quit()` (tray menu) refuses during a session.
 - **Oblivionis lines:** `IDLE, FOCUS, CAUGHT, SEALED, RETURNED, BREAK, DONE, REFUSE` (original
   + 15 each), `BREAK_CUT` (10), `SURRENDER`/`SCORN`/`RELENT`/`STAYED` (the way-out ordeal). Break lines never name a number of minutes (the
   break length varies), `BANK` (13 groups of 10 + CRYCHIC). `Deck` = shuffle cycle (plays every line once, then

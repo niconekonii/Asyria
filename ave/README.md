@@ -38,7 +38,7 @@ Without admin, Ave still closes blocked programs, but it can't block websites or
 
 | You try... | Ave does |
 |---|---|
-| Close the window / Alt+F4 | Refuses |
+| Close the window / Alt+F4 | Hides to the tray (behind the taskbar arrow). The session, the blocks and the timer keep running. |
 | Tray icon > quit | Not offered during a session |
 | Uninstall from Installed apps | Refuses during a session |
 | End task in Task Manager | Comes back within ~1 minute. The timer keeps counting. |

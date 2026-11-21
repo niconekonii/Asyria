@@ -43,6 +43,13 @@ Known gaps (code that has never run on a real Windows PC) live in `NOTES.md`, no
 3. New start sound (minor, rising) and a different end sound (major, falling).
 4. Purpose: also tests the update restart fix (v4.0.13 → this release should restart by itself).
 
+## 5m. Hide during a session (hotfix)
+- X / Alt+F4 during a session hides Ave to the tray instead of refusing. The countdown, enforcement, heal, guard and
+  watchdog keep running. Tray menu still has no quit ("the mask stays on"); `_quit()` still refuses.
+- No tray icon → X minimizes to the taskbar instead (never vanishes without a way back).
+- Hiding mid-ordeal cancels the way out (STAYED). One-time balloon on the first session hide (`cfg.hide_hint`).
+- Caught programs while hidden are closed silently (no balloon; the user's choice).
+
 ## 5l. Windows 11 audit (the user's brief, as a standing prompt; first run SHIPPED as v4.0.43)
 > "Research Windows 11 scripting for this whole project and double-check that everything SHOULD work
 > okay in a Windows 11 environment as an app. Fix bugs and add quality-of-life touches."

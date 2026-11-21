@@ -36,5 +36,7 @@ pinning, taskbar grouping of relaunched copies (one app id), the tray icon/menu/
 (also as admin), X hiding to the tray, the one-time notice, uninstall from Installed apps (and its refusal during
 a session), and the old-folder v4.0.34 auto-update ending up installed. (The CI runner exercises the shortcut,
 icon load and tray window code, but has no real taskbar.)
+Hide during a session: X hiding to the tray mid-session, the one-time balloon, bringing Ave back from the tray
+or by launching it again, and the no-tray fallback (minimize) on a real taskbar.
 
 Testing rule: a change moves from here to "verified" only after a run on Windows, not by reading the code.

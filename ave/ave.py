@@ -3371,9 +3371,21 @@ class App:
             pass
 
     def _on_close(self):
+        """X / Alt+F4. Idle: hide to the tray (or quit if there is no tray).
+        In a session: hide to the tray, or minimize if there is no tray. Never ends anything:
+        every block, the guard and the watchdog keep running; the countdown goes on."""
         if self.session.active:
-            beep(330, 120)
-            self.oracle.say_from(REFUSE)
+            if self._surr_state is not None:   # walking away mid-ordeal = backing out of it
+                self._surrender_cancel()
+            if not self.tray.ok:               # no tray icon: stay findable in the taskbar
+                self.root.iconify()
+                return
+            self.root.withdraw()
+            if not self.cfg.get("hide_hint"):
+                self.cfg["hide_hint"] = True
+                self._save_cfg()
+                self.tray.notify("ave", "I have left the stage, not the theatre. "
+                                        "Every lock stays shut. Click me behind the arrow to return.")
             return
         if self.tray.ok:                       # no session: slip behind the taskbar arrow
             self.root.withdraw()
